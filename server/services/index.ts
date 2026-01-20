@@ -1,10 +1,8 @@
 export type { AuthContext, AuthUser } from "./AuthContextService";
-export { getAuthFromEvent, requireAuth, requireEmailVerification, requireScope } from "./AuthContextService";
+export { getAuthFromEvent, requireAuth, requireScope } from "./AuthContextService";
 export * from "./AuthService";
 export * from "./AuthTokenService";
 export * from "./CacheService";
-export * from "./EmailService";
-export * from "./EmailVerificationService";
 export * from "./LoggerService";
 export * from "./OAuthCleanupService";
 export * from "./OAuthSecurityService";
