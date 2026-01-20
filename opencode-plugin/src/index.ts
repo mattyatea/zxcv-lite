@@ -420,6 +420,42 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         }
       }),
 
+      zxcv_uninstall_rule: tool({
+        description: "Uninstall a globally installed rule",
+        args: {
+          name: tool.schema.string().describe("Rule name to uninstall (without .md extension)")
+        },
+        async execute(args) {
+          try {
+            const rulesDir = `${process.env.HOME}/.config/opencode/rules`
+            const rulePath = `${rulesDir}/${args.name}.md`
+            
+            // Check if rule exists
+            const file = Bun.file(rulePath)
+            if (!(await file.exists())) {
+              return JSON.stringify({
+                message: `Rule "${args.name}" is not installed`,
+                installed: false
+              })
+            }
+
+            // Remove the rule file
+            await Bun.$`rm -f ${rulePath}`
+
+            return JSON.stringify({
+              message: `Rule "${args.name}" uninstalled successfully!`,
+              removed: true,
+              path: rulePath
+            })
+          } catch (error) {
+            return JSON.stringify({
+              message: `Failed to uninstall rule "${args.name}": ${error}`,
+              removed: false
+            })
+          }
+        }
+      }),
+
       zxcv_logout: tool({
         description: "Logout from zxcv platform",
         args: {},
