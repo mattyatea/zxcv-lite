@@ -65,7 +65,7 @@ export const useDebug = () => {
 	};
 
 	return {
-		isDebugMode: readonly(isDebugMode),
+		isDebugMode,
 		toggleDebugMode,
 		debugLog,
 		debugError,

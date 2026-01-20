@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { readonly, ref } from "vue";
+import { ref } from "vue";
 
 export interface Toast {
 	id: string;
@@ -83,7 +83,7 @@ export const useToastStore = defineStore("toast", () => {
 
 	return {
 		// State
-		toasts: readonly(toasts),
+		toasts,
 		// Actions
 		showToast,
 		removeToast,

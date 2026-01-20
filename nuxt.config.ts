@@ -27,7 +27,7 @@ export default defineNuxtConfig({
 		preset: "cloudflare_module",
 
 		rollupConfig: {
-			external: ["@prisma/client"],
+			external: ["@prisma/client", "@zxcv/opencode"],
 		},
 
 		cloudflare: {
@@ -64,6 +64,7 @@ export default defineNuxtConfig({
 		build: {
 			cssCodeSplit: true,
 			rollupOptions: {
+				external: ["@zxcv/opencode"],
 				output: {
 					manualChunks(id) {
 						if (id.includes("node_modules")) {
