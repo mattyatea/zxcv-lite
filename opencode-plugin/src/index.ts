@@ -388,7 +388,8 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             const rulesDir = `${process.env.HOME}/.config/opencode/rules`
             
             const files: string[] = []
-            for await (const path of (Bun as any).glob(`${rulesDir}/*.md`)) {
+            const glob = new (Bun as any).Glob(`${rulesDir}/*.md`)
+            for await (const path of glob.scan()) {
               files.push(path as string)
             }
 
