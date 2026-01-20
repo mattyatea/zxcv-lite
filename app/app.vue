@@ -7,6 +7,7 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from "vue";
 import { useI18n } from "~/composables/useI18n";
 import { useSettingsStore } from "~/stores/settings";
 

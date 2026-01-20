@@ -301,21 +301,20 @@
 </template>
 
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useAuthStore } from "~/stores/auth";
 import { useThemeStore } from "~/stores/theme";
 import Avatar from "~/components/common/Avatar.vue";
 
 const authStore = useAuthStore();
-const { user } = storeToRefs(authStore);
+const user = computed(() => authStore.user);
 const showUserMenu = ref(false);
 const showMobileMenu = ref(false);
 const showSearch = ref(false);
 const showQuickAccess = ref(false);
 const searchQuery = ref("");
 const themeStore = useThemeStore();
-const { isDark } = storeToRefs(themeStore);
+const isDark = computed(() => themeStore.isDark);
 
 const { t } = useI18n();
 

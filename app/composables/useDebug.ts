@@ -1,4 +1,4 @@
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 
 export const useDebug = () => {
 	const config = useRuntimeConfig();

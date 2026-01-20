@@ -43,7 +43,7 @@
 import { useToastStore } from "~/stores/toast";
 
 const toastStore = useToastStore();
-const { toasts } = storeToRefs(toastStore);
+const toasts = computed(() => toastStore.toasts);
 const { removeToast } = toastStore;
 
 const toastClasses = {
