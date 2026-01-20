@@ -3,7 +3,20 @@
 export default defineNuxtConfig({
 	compatibilityDate: "2025-08-01",
 	devtools: { enabled: true },
-	modules: ["nitro-cloudflare-dev", "@nuxtjs/tailwindcss", "@pinia/nuxt"],
+	modules: [
+		"nitro-cloudflare-dev",
+		[
+			"@nuxtjs/tailwindcss",
+			{
+				exposeConfig: false,
+				viewports: false,
+				editorSupport: false,
+				cssPath: "~/assets/css/main.css",
+				configPath: "~/tailwind.config.js",
+			},
+		],
+		"@pinia/nuxt",
+	],
 	future: {
 		compatibilityVersion: 4,
 	},
@@ -41,9 +54,33 @@ export default defineNuxtConfig({
 				{ rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },
 				{
 					rel: "stylesheet",
-					href: "https://fonts.googleapis.com/css2?family=M+PLUS+1:wght@100;200;300;400;500;600;700;800;900&display=swap",
+					href: "https://fonts.googleapis.com/css2?family=M+PLUS+1:wght@400;500;600;700&display=swap",
 				},
 			],
+		},
+	},
+
+	vite: {
+		build: {
+			cssCodeSplit: true,
+			rollupOptions: {
+				output: {
+					manualChunks(id) {
+						if (id.includes("node_modules")) {
+							if (id.includes("vue") && !id.includes("pinia")) {
+								return "vue-vendor";
+							}
+							if (id.includes("pinia")) {
+								return "pinia";
+							}
+							if (id.includes("marked")) {
+								return "marked";
+							}
+							return "vendor";
+						}
+					},
+				},
+			},
 		},
 	},
 });

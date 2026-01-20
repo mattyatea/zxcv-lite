@@ -9,6 +9,18 @@ export default {
 		"./error.vue",
 	],
 	darkMode: "class",
+	safelist: [
+		"prose",
+		"prose-gray",
+		"dark:prose-invert",
+		"prose-sm",
+		"prose::-webkit-scrollbar",
+		"prose::-webkit-scrollbar-track",
+		"prose::-webkit-scrollbar-thumb",
+		"prose::-webkit-scrollbar-thumb:hover",
+		".dark .prose::-webkit-scrollbar-thumb",
+		".dark .prose::-webkit-scrollbar-thumb:hover",
+	],
 	theme: {
 		extend: {
 			colors: {
