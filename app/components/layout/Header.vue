@@ -314,7 +314,11 @@ const navigation = computed(() => {
 	return items;
 });
 
-const userMenuItems = computed(() => []);
+const userMenuItems = computed(() => {
+	const items: Array<{ name: string; href: string; icon?: any }> = [];
+
+	return items;
+});
 
 const toggleDark = () => {
 	themeStore.toggleTheme();

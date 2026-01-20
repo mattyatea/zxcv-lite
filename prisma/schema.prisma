@@ -11,11 +11,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RuleType {
-  rule
-  ccsubagents
-}
-
 enum UserRole {
   user
   moderator
@@ -72,7 +67,6 @@ model Rule {
   id              String  @id
   name            String
   userId          String  @map("user_id")
-  type            RuleType @default(rule)
   visibility      String
   description     String?
   tags            String? // JSON array stored as text
@@ -95,7 +89,6 @@ model Rule {
   @@index([visibility])
   @@index([name])
   @@index([updatedAt])
-  @@index([type])
   @@map("rules")
 }
 

@@ -135,7 +135,7 @@ const isValid = computed(() => {
 const usernameRegex = /^[a-zA-Z0-9][a-zA-Z0-9-_]{2,31}$/;
 
 // Debounced username check
-const checkUsernameAvailability = async (value: string) => {
+const checkUsernameAvailability: (value: string) => Promise<void> = async (value) => {
 	if (!value || !usernameRegex.test(value)) {
 		isAvailable.value = false;
 		return;
@@ -156,7 +156,7 @@ const checkUsernameAvailability = async (value: string) => {
 	}
 };
 
-const debouncedCheck = debounce(checkUsernameAvailability, 500);
+const debouncedCheck = debounce(checkUsernameAvailability as (...args: unknown[]) => unknown, 500);
 
 // Methods
 const checkUsername = (event: Event) => {

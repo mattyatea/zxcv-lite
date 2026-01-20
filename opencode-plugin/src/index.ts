@@ -1,4 +1,10 @@
-import { Plugin, tool } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode-ai/plugin"
+import { tool } from "@opencode-ai/plugin"
+
+declare const Bun: any
+declare global {
+	var Bun: any
+}
 
 interface Config {
   apiUrl: string

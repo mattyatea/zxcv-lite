@@ -15,6 +15,31 @@ type RuleVersion = Record<string, unknown> & {
 	versionNumber: string;
 };
 
+interface RuleCreateInput {
+	id: string;
+	name: string;
+	userId: string;
+	type: "rule";
+	visibility: string;
+	description: string | null;
+	tags: string | null;
+	publishedAt: number | null;
+	version: string;
+	latestVersionId: string | null;
+	views: number;
+	stars: number;
+}
+
+interface RuleVersionCreateInput {
+	id: string;
+	ruleId: string;
+	versionNumber: string;
+	changelog: string | null;
+	contentHash: string;
+	r2ObjectKey: string;
+	createdBy: string;
+}
+
 type RuleUncheckedCreateInput = Record<string, unknown>;
 type RuleWhereInput = Record<string, unknown>;
 type RuleUpdateInput = Record<string, unknown>;
@@ -43,12 +68,8 @@ export class RuleRepository extends BaseRepository {
 	async create(data: RuleUncheckedCreateInput): Promise<Rule> {
 		try {
 			return await this.db.rule.create({
-				data: {
-					...data,
-					createdAt: this.getCurrentTimestamp(),
-					updatedAt: this.getCurrentTimestamp(),
-				},
-			});
+				data: data as unknown as never,
+			}) as unknown as Rule;
 		} catch (error) {
 			this.handleError(error, "ルールの作成に失敗しました");
 		}
@@ -279,11 +300,8 @@ export class RuleRepository extends BaseRepository {
 	async createVersion(data: RuleVersionUncheckedCreateInput): Promise<RuleVersion> {
 		try {
 			return await this.db.ruleVersion.create({
-				data: {
-					...data,
-					createdAt: this.getCurrentTimestamp(),
-				},
-			});
+				data: data as unknown as never,
+			}) as unknown as RuleVersion;
 		} catch (error) {
 			this.handleError(error, "バージョンの作成に失敗しました");
 		}

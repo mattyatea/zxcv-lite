@@ -75,7 +75,6 @@ export class RuleService {
 			rule = await this.ruleRepository.create({
 				id: ruleId,
 				name: data.name,
-				type: data.type || "rule",
 				userId,
 				description: data.description || null,
 				visibility: data.visibility,

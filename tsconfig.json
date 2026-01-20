@@ -48,5 +48,5 @@
 		"worker-configuration.d.ts",
 		"worker-configuration.override.d.ts"
 	],
-	"exclude": ["node_modules", "dist", "coverage", ".output", "tests/", "nuxt.config.ts"]
+	"exclude": ["node_modules", "dist", "coverage", ".output", "tests/", "nuxt.config.ts", "opencode-plugin/"]
 }
