@@ -66,38 +66,9 @@ export default defineNuxtConfig({
 			cssCodeSplit: true,
 			rollupOptions: {
 				external: ["@zxcv/opencode"],
-				output: {
-					manualChunks(id) {
-						if (id.includes("node_modules")) {
-							// Vue and related libraries
-							if (id.includes("vue") && !id.includes("pinia")) {
-								return "vue-vendor";
-							}
-							// Pinia store library
-							if (id.includes("pinia")) {
-								return "pinia";
-							}
-							// Markdown parser
-							if (id.includes("marked")) {
-								return "marked";
-							}
-							// ORPC client
-							if (id.includes("@orpc")) {
-								return "orpc";
-							}
-							// Other vendor libraries
-							return "vendor";
-						}
-					},
-				},
-				terserOptions: {
-					compress: false,
-					mangle: {
-						reserved: ['ut'], // 'ut'を予約語として保護
-					},
-				},
 			},
 			sourcemap: true,
+			minify: false, // Disable minification for debugging
 		},
 		esbuild: {
 			target: "esnext",
