@@ -1,11 +1,15 @@
 import { GitHub } from "arctic";
 import type { CloudflareEnv } from "../types/env";
 
-export function createOAuthProviders(env: CloudflareEnv) {
+export function createOAuthProviders(env: CloudflareEnv, request?: Request) {
+	const redirectUri = request
+		? `${new URL(request.url).origin}/auth/callback/github`
+		: "http://localhost:3000/auth/callback/github";
+
 	const github = new GitHub(
 		env.GH_OAUTH_CLIENT_ID || "",
 		env.GH_OAUTH_CLIENT_SECRET || "",
-		"http://localhost:3000/auth/callback/github",
+		redirectUri,
 	);
 
 	return { github };
