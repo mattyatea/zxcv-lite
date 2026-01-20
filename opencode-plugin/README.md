@@ -15,12 +15,12 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
 
 1. Install the package globally or locally:
    ```bash
-   npm install -g @zxcv/opencode
+   npm install -g zxcv-opencode-plugin
    ```
 
    Or install in your project:
    ```bash
-   npm install @zxcv/opencode
+   npm install zxcv-opencode-plugin
    ```
 
 2. Create or update `opencode.json` in your project root:
