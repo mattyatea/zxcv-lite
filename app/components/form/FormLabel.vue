@@ -2,7 +2,7 @@
   <label
     :for="htmlFor"
     :class="[
-      required && 'after:content-[\"*\"] after:ml-0.5 after:text-red-500',
+      required && 'after:content-[\'*\'] after:ml-0.5 after:text-red-500',
       error ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300',
       className || ''
     ]"
