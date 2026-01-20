@@ -27,7 +27,7 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
    ```json
    {
      "$schema": "https://opencode.ai/config.json",
-     "plugin": ["@zxcv/opencode"]
+     "plugin": ["zxcv-opencode-plugin"]
    }
    ```
 

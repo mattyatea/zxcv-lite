@@ -1,5 +1,5 @@
 {
-  "name": "@zxcv/opencode",
+  "name": "zxcv-opencode-plugin",
   "version": "1.0.0",
   "type": "module",
   "description": "OpenCode plugin for Zxcv AI Coding Rules platform",
