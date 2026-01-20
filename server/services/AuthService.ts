@@ -3,8 +3,6 @@ import type { PrismaClient, User } from "@prisma/client";
 import { nanoid } from "nanoid";
 import { UserRepository } from "../repositories/UserRepository";
 import type { CloudflareEnv } from "../types/env";
-import { EmailServiceError } from "../types/errors";
-import { sendEmail } from "./EmailService";
 import { createJWT, createRefreshToken, generateToken, verifyToken } from "./AuthTokenService";
 import { hashPassword, verifyPassword } from "../utils/cryptoHash";
 import { authErrors } from "../utils/i18nTranslate";
@@ -45,43 +43,18 @@ export class AuthService {
 		const hashedPassword = await hashPassword(data.password);
 		const userId = nanoid();
 
-		// 確認メール用のトークンを事前に生成
-		const verificationToken = await generateToken(
-			{ userId, email: data.email },
-			this.env.JWT_SECRET,
-			"1h",
-		);
-
-		// ユーザー作成
+		// ユーザー作成（メール確認はスキップ）
 		const user = await this.userRepository.create({
 			id: userId,
 			username: data.username,
 			email: data.email,
 			passwordHash: hashedPassword,
-			emailVerified: false,
+			emailVerified: true,
 		});
-
-		// 確認メール送信（失敗した場合はユーザーを削除）
-		try {
-			await this.sendVerificationEmail(user.email, verificationToken, data.locale || "ja");
-		} catch (error) {
-			// メール送信に失敗した場合、作成したユーザーを削除（ロールバック）
-			try {
-				await this.userRepository.delete(user.id);
-			} catch (deleteError) {
-				console.error("Failed to rollback user creation:", deleteError);
-			}
-
-			// 元のエラーを再throw
-			if (error instanceof EmailServiceError) {
-				throw error;
-			}
-			throw new EmailServiceError("Failed to send verification email");
-		}
 
 		return {
 			success: true,
-			message: "Registration successful. Please check your email to verify your account.",
+			message: "Registration successful.",
 			user: {
 				id: user.id,
 				username: user.username,
@@ -111,12 +84,6 @@ export class AuthService {
 		if (!isValid) {
 			throw new ORPCError("UNAUTHORIZED", {
 				message: authErrors.invalidCredentials(locale),
-			});
-		}
-
-		if (!user.emailVerified) {
-			throw new ORPCError("FORBIDDEN", {
-				message: authErrors.emailNotVerified(locale),
 			});
 		}
 
@@ -153,189 +120,6 @@ export class AuthService {
 				avatarUrl: user.avatarUrl,
 			},
 		};
-	}
-
-	/**
-	 * メールアドレスの確認
-	 */
-	async verifyEmail(token: string) {
-		try {
-			const payload = await verifyToken(token, this.env.JWT_SECRET);
-			const { userId, email } = payload as { userId: string; email: string };
-
-			const user = await this.userRepository.findById(userId);
-			if (!user || user.email !== email) {
-				throw new ORPCError("BAD_REQUEST", {
-					message: "無効な確認トークンです",
-				});
-			}
-
-			if (user.emailVerified) {
-				return { message: "メールアドレスは既に確認済みです" };
-			}
-
-			await this.userRepository.verifyEmail(userId);
-
-			return { message: "メールアドレスが確認されました" };
-		} catch (error) {
-			throw new ORPCError("BAD_REQUEST", {
-				message: "無効または期限切れのトークンです",
-			});
-		}
-	}
-
-	/**
-	 * パスワードリセットのリクエスト
-	 */
-	async requestPasswordReset(email: string, locale = "ja") {
-		const user = await this.userRepository.findByEmail(email);
-		if (!user) {
-			// セキュリティのため、ユーザーが存在しない場合もエラーを出さない
-			return { message: "メールが送信されました" };
-		}
-
-		const resetToken = await generateToken(
-			{ userId: user.id, email: user.email },
-			this.env.JWT_SECRET,
-			"1h",
-		);
-
-		try {
-			await this.sendPasswordResetEmail(email, resetToken, locale);
-		} catch (error) {
-			if (error instanceof EmailServiceError) {
-				throw error;
-			}
-			throw new EmailServiceError("Failed to send password reset email");
-		}
-
-		return { message: "パスワードリセットメールを送信しました" };
-	}
-
-	/**
-	 * パスワードのリセット
-	 */
-	async resetPassword(token: string, newPassword: string) {
-		try {
-			const payload = await verifyToken(token, this.env.JWT_SECRET);
-			const { userId } = payload as { userId: string };
-
-			const hashedPassword = await hashPassword(newPassword);
-			await this.userRepository.updatePassword(userId, hashedPassword);
-
-			return { message: "パスワードがリセットされました" };
-		} catch (error) {
-			throw new ORPCError("BAD_REQUEST", {
-				message: "無効または期限切れのトークンです",
-			});
-		}
-	}
-
-	/**
-	 * 確認メール再送信
-	 */
-	async resendVerificationEmail(userId: string, locale = "ja") {
-		const user = await this.userRepository.findById(userId);
-		if (!user) {
-			throw new ORPCError("NOT_FOUND", {
-				message: "ユーザーが見つかりません",
-			});
-		}
-
-		if (user.emailVerified) {
-			throw new ORPCError("BAD_REQUEST", {
-				message: "メールアドレスは既に確認済みです",
-			});
-		}
-
-		const verificationToken = await generateToken(
-			{ userId: user.id, email: user.email },
-			this.env.JWT_SECRET,
-			"1h",
-		);
-
-		try {
-			await this.sendVerificationEmail(user.email, verificationToken, locale);
-		} catch (error) {
-			if (error instanceof EmailServiceError) {
-				throw error;
-			}
-			throw new EmailServiceError("Failed to send verification email");
-		}
-
-		return { message: "確認メールを再送信しました" };
-	}
-
-	/**
-	 * 確認メールを送信
-	 */
-	private async sendVerificationEmail(email: string, token: string, locale: string) {
-		const verifyUrl = `${this.env.FRONTEND_URL}/verify-email?token=${token}`;
-
-		const templates = {
-			ja: {
-				subject: "メールアドレスの確認",
-				body: `
-					<h2>メールアドレスの確認</h2>
-					<p>zxcvへのご登録ありがとうございます。</p>
-					<p>以下のリンクをクリックして、メールアドレスを確認してください：</p>
-					<a href="${verifyUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">メールアドレスを確認</a>
-					<p>このリンクは1時間で有効期限が切れます。</p>
-					<p>心当たりがない場合は、このメールを無視してください。</p>
-				`,
-			},
-			en: {
-				subject: "Verify your email address",
-				body: `
-					<h2>Verify your email address</h2>
-					<p>Thank you for registering with zxcv.</p>
-					<p>Please click the link below to verify your email address:</p>
-					<a href="${verifyUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email</a>
-					<p>This link will expire in 1 hour.</p>
-					<p>If you didn't request this, please ignore this email.</p>
-				`,
-			},
-		};
-
-		const template = templates[locale as keyof typeof templates] || templates.ja;
-
-		await sendEmail(this.env, email, template.subject, template.body);
-	}
-
-	/**
-	 * パスワードリセットメールを送信
-	 */
-	private async sendPasswordResetEmail(email: string, token: string, locale: string) {
-		const resetUrl = `${this.env.FRONTEND_URL}/reset-password?token=${token}`;
-
-		const templates = {
-			ja: {
-				subject: "パスワードのリセット",
-				body: `
-					<h2>パスワードのリセット</h2>
-					<p>パスワードリセットのリクエストを受け付けました。</p>
-					<p>以下のリンクをクリックして、新しいパスワードを設定してください：</p>
-					<a href="${resetUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">パスワードをリセット</a>
-					<p>このリンクは1時間で有効期限が切れます。</p>
-					<p>心当たりがない場合は、このメールを無視してください。</p>
-				`,
-			},
-			en: {
-				subject: "Reset your password",
-				body: `
-					<h2>Reset your password</h2>
-					<p>We received a request to reset your password.</p>
-					<p>Please click the link below to set a new password:</p>
-					<a href="${resetUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
-					<p>This link will expire in 1 hour.</p>
-					<p>If you didn't request this, please ignore this email.</p>
-				`,
-			},
-		};
-
-		const template = templates[locale as keyof typeof templates] || templates.ja;
-
-		await sendEmail(this.env, email, template.subject, template.body);
 	}
 
 	/**

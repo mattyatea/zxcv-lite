@@ -17,9 +17,6 @@ database_id = "ee2c13b9-0d5b-49ea-9bf4-5a65e2f7ad4e"
 binding = "R2"
 bucket_name = "zxcv"
 
-[[send_email]]
-name = "EMAIL_SENDER"
-
 [vars]
 # Non-secret configuration for production
 # Secrets (JWT_SECRET, GOOGLE_CLIENT_ID, etc.) are set via wrangler secret during deployment
@@ -28,9 +25,6 @@ JWT_EXPIRES_IN = "7d"
 RATE_LIMIT_ANONYMOUS = "100"
 RATE_LIMIT_AUTHENTICATED = "1000"
 RATE_LIMIT_API_KEY = "5000"
-EMAIL_FROM = "noreply+zxcv@prism-project.net"
-FRONTEND_URL = "https://zxcv.nanasi-apps.xyz"
-APP_URL = "https://zxcv.nanasi-apps.xyz"
 ENVIRONMENT = "production"
 
 [placement]
@@ -54,9 +48,6 @@ database_id = "e3bce64a-4462-4812-a343-c04c3ba7032a"
 binding = "R2"
 bucket_name = "zxcv-staging"
 
-[[env.staging.send_email]]
-name = "EMAIL_SENDER"
-
 [env.staging.vars]
 # Staging environment configuration (vars are NOT inherited, must be redefined)
 JWT_ALGORITHM = "HS256"
@@ -64,9 +55,6 @@ JWT_EXPIRES_IN = "7d"
 RATE_LIMIT_ANONYMOUS = "100"
 RATE_LIMIT_AUTHENTICATED = "1000"
 RATE_LIMIT_API_KEY = "5000"
-EMAIL_FROM = "noreply+zxcv@prism-project.net"
-FRONTEND_URL = "https://zxcv-staging.mattyatea.me"
-APP_URL = "https://zxcv-staging.mattyatea.me"
 ENVIRONMENT = "staging"
 
 # Workers Assets configuration for staging

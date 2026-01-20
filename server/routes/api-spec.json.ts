@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 		},
 		servers: [
 			{
-				url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/api`,
+				url: "http://localhost:3000/api",
 				description: "API Server",
 			},
 		],

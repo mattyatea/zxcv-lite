@@ -85,13 +85,10 @@ export default defineEventHandler(async (event: H3Event) => {
 		const testEnv = {
 			DB: globalThis.DB || undefined,
 			R2: globalThis.R2 || undefined,
-			EMAIL_SENDER: globalThis.EMAIL_SENDER || undefined,
 			KV_CACHE: globalThis.KV_CACHE || undefined,
 			JWT_SECRET: globalThis.JWT_SECRET || "test-secret",
 			JWT_ALGORITHM: "HS256",
 			JWT_EXPIRES_IN: "1h",
-			EMAIL_FROM: "test@example.com",
-			FRONTEND_URL: "http://localhost:3000",
 			RATE_LIMIT_ANONYMOUS: "100",
 			RATE_LIMIT_AUTHENTICATED: "1000",
 			RATE_LIMIT_API_KEY: "5000",
