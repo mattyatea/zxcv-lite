@@ -837,5 +837,41 @@
 			"moderator": "モデレーター",
 			"user": "ユーザー"
 		}
+	},
+	"pages": {
+		"privacy": {
+			"title": "プライバシーポリシー",
+			"description": "zxcvのプライバシーポリシー",
+			"dataCollection": "データ収集",
+			"dataCollectionText": "当サービスでは、アカウント作成時のメールアドレス、ユーザー名、作成したルールなど、サービス提供に必要な最小限の情報を収集します。",
+			"dataUsage": "データ利用",
+			"dataUsageText": "収集したデータは、サービスの提供、改善、セキュリティ維持の目的のみに利用します。第三者への提供は法令に基づく場合を除き行いません。",
+			"dataProtection": "データ保護",
+			"dataProtectionText": "SSL/TLS暗号化により通信を保護し、アクセス制限や監視体制によりデータの安全性を確保します。",
+			"userRights": "ユーザーの権利",
+			"userRightsText": "ユーザーは自身の個人情報の開示、訂正、削除を要求する権利があります。アカウント設定からいつでもデータを管理できます。",
+			"contact": "お問い合わせ",
+			"contactText": "プライバシーに関するご質問は、GitHubのIssuesを通じてお問い合わせください。"
+		},
+		"terms": {
+			"title": "利用規約",
+			"description": "zxcvの利用規約",
+			"acceptance": "規約への同意",
+			"acceptanceText": "本サービスを利用することで、この利用規約に同意したものとみなします。",
+			"serviceUse": "サービス利用",
+			"serviceUseText": "本サービスは、AIコーディングルールの作成、共有、管理を目的としています。違法行為や迷惑行為への利用は禁止されています。",
+			"userContent": "ユーザーコンテンツ",
+			"userContentText": "ユーザーが作成したルールやコンテンツの知的財産権はユーザーに帰属します。公開されたコンテンツは他のユーザーが閲覧できる場合があります。",
+			"intellectualProperty": "知的財産権",
+			"intellectualPropertyText": "本サービスおよびそのコンテンツに関する知的財産権は、運営者に帰属します。",
+			"prohibitedUses": "禁止事項",
+			"prohibitedUsesText": "違法な活動、スパム、マルウェアの配布、他人の権利侵害、システムへの攻撃などは禁止されています。",
+			"liability": "免責事項",
+			"liabilityText": "本サービスの利用により発生した損害について、運営者は賠償責任を負いません。",
+			"changes": "規約の変更",
+			"changesText": "運営者は必要に応じて本規約を変更できます。変更後はサイト内でお知らせします。",
+			"contact": "お問い合わせ",
+			"contactText": "利用規約に関するご質問は、GitHubのIssuesを通じてお問い合わせください。"
+		}
 	}
 }

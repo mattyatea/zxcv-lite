@@ -807,5 +807,41 @@
 			"moderator": "Moderator",
 			"user": "User"
 		}
+	},
+	"pages": {
+		"privacy": {
+			"title": "Privacy Policy",
+			"description": "zxcv Privacy Policy",
+			"dataCollection": "Data Collection",
+			"dataCollectionText": "We collect minimal information necessary to provide our services, including email address, username, and created rules during account registration.",
+			"dataUsage": "Data Usage",
+			"dataUsageText": "Collected data is used solely for service provision, improvement, and security maintenance. We do not provide data to third parties except as required by law.",
+			"dataProtection": "Data Protection",
+			"dataProtectionText": "We protect communications with SSL/TLS encryption and ensure data security through access controls and monitoring systems.",
+			"userRights": "User Rights",
+			"userRightsText": "Users have the right to request disclosure, correction, or deletion of their personal information. You can manage your data at any time through account settings.",
+			"contact": "Contact",
+			"contactText": "For privacy-related questions, please contact us through GitHub Issues."
+		},
+		"terms": {
+			"title": "Terms of Service",
+			"description": "zxcv Terms of Service",
+			"acceptance": "Acceptance of Terms",
+			"acceptanceText": "By using this service, you agree to be bound by these Terms of Service.",
+			"serviceUse": "Service Use",
+			"serviceUseText": "This service is intended for creating, sharing, and managing AI coding rules. Use for illegal activities or harassment is prohibited.",
+			"userContent": "User Content",
+			"userContentText": "Intellectual property rights to rules and content created by users belong to the users. Published content may be viewable by other users.",
+			"intellectualProperty": "Intellectual Property",
+			"intellectualPropertyText": "Intellectual property rights to this service and its content belong to the operator.",
+			"prohibitedUses": "Prohibited Uses",
+			"prohibitedUsesText": "Illegal activities, spam, malware distribution, rights infringement, system attacks, and similar activities are prohibited.",
+			"liability": "Disclaimer",
+			"liabilityText": "The operator is not liable for damages arising from the use of this service.",
+			"changes": "Changes to Terms",
+			"changesText": "The operator may change these terms as necessary. Changes will be announced within the site.",
+			"contact": "Contact",
+			"contactText": "For questions about the Terms of Service, please contact us through GitHub Issues."
+		}
 	}
 }

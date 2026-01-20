@@ -46,7 +46,7 @@ export const useThemeStore = defineStore("theme", () => {
 	};
 
 	return {
-		isDark: readonly(isDark),
+		isDark,
 		initializeTheme,
 		toggleTheme,
 		setTheme,

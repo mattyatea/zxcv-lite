@@ -196,11 +196,11 @@ export const useAuthStore = defineStore("auth", () => {
 
 	return {
 		// State
-		user: readonly(user),
-		accessToken: readonly(accessToken),
-		refreshToken: readonly(refreshToken),
-		isLoading: readonly(isLoading),
-		isInitialized: readonly(isInitialized),
+		user,
+		accessToken,
+		refreshToken,
+		isLoading,
+		isInitialized,
 		// Getters
 		isAuthenticated,
 		isReady,
