@@ -295,7 +295,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
       }),
 
       zxcv_install_rule: tool({
-        description: "Install a rule to current project",
+        description: "Install a rule globally (~/.config/opencode/rules)",
         args: {
           id: tool.schema.string().describe("Rule ID to install"),
           version: tool.schema.string().optional().describe("Specific version (optional)"),
@@ -307,7 +307,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             body: JSON.stringify({ id: args.id, version: args.version })
           })
 
-          const rulesDir = `${ctx.directory}/.opencode/rules`
+          const rulesDir = `${process.env.HOME}/.config/opencode/rules`
           await Bun.$`mkdir -p ${rulesDir}`
 
           let ruleContent = content.content
@@ -330,11 +330,11 @@ const ZxcvPlugin: Plugin = async (ctx) => {
       }),
 
       zxcv_list_installed_rules: tool({
-        description: "List all installed rules in current project",
+        description: "List all globally installed rules (~/.config/opencode/rules)",
         args: {},
         async execute() {
           try {
-            const rulesDir = `${ctx.directory}/.opencode/rules`
+            const rulesDir = `${process.env.HOME}/.config/opencode/rules`
             
             const files: string[] = []
             for await (const path of (Bun as any).glob(`${rulesDir}/*.md`)) {
