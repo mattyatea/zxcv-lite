@@ -1,5 +1,5 @@
 # Base configuration
-name = "zxcv-backend-and-frontend"
+name = "zxcv-lite"
 main = "./.output/server/index.mjs"
 compatibility_date = "2025-09-15"
 compatibility_flags = ["nodejs_compat"]
