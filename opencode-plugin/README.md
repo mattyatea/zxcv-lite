@@ -11,47 +11,27 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
 
 ## Installation
 
-### Using npm (Recommended)
+### Recommended
 
-1. Install the package globally or locally:
-   ```bash
-   npm install -g zxcv-opencode-plugin
-   ```
-
-   Or install in your project:
-   ```bash
-   npm install zxcv-opencode-plugin
-   ```
-
-2. Create or update `opencode.json` in your project root:
+1. Create or update `~/.condig/opencode/opencode.json`:
    ```json
    {
      "$schema": "https://opencode.ai/config.json",
-     "plugin": ["zxcv-opencode-plugin"]
+     "plugin": ["zxcv-opencode-plugin","opencode-rules"]
    }
    ```
 
-3. Restart OpenCode, the plugin will be automatically loaded.
+2. Restart OpenCode, the plugin will be automatically loaded.
 
-### Local Installation
-
-1. Build the plugin:
-   ```bash
-   cd opencode-plugin
-   npm install
-   npm run build
-   ```
-
-2. Copy the built plugin to your OpenCode plugins directory:
-   ```bash
-   cp -r . ~/.config/opencode/plugins/zxcv
-   ```
-
-3. Restart OpenCode, the plugin will be automatically loaded.
-
-### Using with OpenCode
-
-The plugin will be automatically loaded when you start OpenCode. All tools will be prefixed with `zxcv_`.
+### Using opencode
+```text
+install zxcv-opencode-plugin and opencode-rules.
+Create or update `~/.condig/opencode/opencode.json`:
+   {
+     "$schema": "https://opencode.ai/config.json",
+     "plugin": ["zxcv-opencode-plugin","opencode-rules"]
+   }
+```
 
 ## Available Tools
 
