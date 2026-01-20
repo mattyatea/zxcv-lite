@@ -105,7 +105,7 @@ export const authProcedures = {
 			const { createOAuthProviders, generateState, generateCodeVerifier } = await import(
 				"../../services/OAuthService",
 			);
-			const providers = createOAuthProviders(env);
+			const providers = createOAuthProviders(env, cloudflare?.request);
 
 			// Import security utilities
 			const { validateRedirectUrl, performOAuthSecurityChecks, generateNonce, OAUTH_CONFIG } =
@@ -177,7 +177,7 @@ export const authProcedures = {
 		});
 
 		const { createOAuthProviders } = await import("../../services/OAuthService");
-		const providers = createOAuthProviders(env);
+		const providers = createOAuthProviders(env, cloudflare?.request);
 
 		// Import security utilities
 		const { validateOAuthResponse } = await import("../../services/OAuthSecurityService");
