@@ -83,5 +83,11 @@ export default defineNuxtConfig({
 				},
 			},
 		},
+		esbuild: {
+			target: "esnext",
+		},
+		optimizeDeps: {
+			include: ["vue", "pinia", "@orpc/client"],
+		},
 	},
 });

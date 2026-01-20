@@ -1,3 +1,5 @@
+import { ref, onMounted } from "vue";
+
 export const useDebug = () => {
 	const config = useRuntimeConfig();
 	const isDebugMode = ref(false);
