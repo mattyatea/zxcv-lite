@@ -136,6 +136,41 @@ interface User {
   website: string | null
 }
 
+const LANGUAGE_MAP: Record<string, string[]> = {
+  typescript: ["**/*.ts", "**/*.tsx"],
+  javascript: ["**/*.js", "**/*.jsx", "**/*.mjs"],
+  java: ["**/*.java"],
+  python: ["**/*.py"],
+  go: ["**/*.go"],
+  rust: ["**/*.rs"],
+  ruby: ["**/*.rb"],
+  php: ["**/*.php"],
+  csharp: ["**/*.cs"],
+  cpp: ["**/*.cpp", "**/*.cc", "**/*.hpp"],
+  c: ["**/*.c", "**/*.h"],
+  swift: ["**/*.swift"],
+  kotlin: ["**/*.kt", "**/*.kts"],
+  scala: ["**/*.scala"],
+}
+
+function inferGlobsFromTagsAndName(tags: string[], ruleName: string): string[] {
+  for (const tag of tags) {
+    const lowerTag = tag.toLowerCase()
+    if (LANGUAGE_MAP[lowerTag]) {
+      return LANGUAGE_MAP[lowerTag]
+    }
+  }
+
+  const lowerName = ruleName.toLowerCase()
+  for (const [lang, globs] of Object.entries(LANGUAGE_MAP)) {
+    if (lowerName.includes(lang)) {
+      return globs
+    }
+  }
+
+  return []
+}
+
 const ZxcvPlugin: Plugin = async (ctx) => {
   await loadTokens()
 
@@ -299,22 +334,38 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         args: {
           id: tool.schema.string().describe("Rule ID to install"),
           version: tool.schema.string().optional().describe("Specific version (optional)"),
-          languages: tool.schema.array(tool.schema.string()).optional().describe("Languages to apply this rule to (e.g., ['typescript', 'javascript']) - if not specified, rule applies to all files")
+          languages: tool.schema.array(tool.schema.string()).optional().describe("Languages to apply this rule to (e.g., ['typescript', 'javascript']) - if not specified, will be auto-detected from tags and rule name")
         },
         async execute(args) {
-          const content = await request<RuleContent>("/rules/getContent", {
-            method: "POST",
-            body: JSON.stringify({ id: args.id, version: args.version })
-          })
+          const [rule, content] = await Promise.all([
+            request<Rule>("/rules/getByPath", {
+              method: "POST",
+              body: JSON.stringify({ id: args.id })
+            }),
+            request<RuleContent>("/rules/getContent", {
+              method: "POST",
+              body: JSON.stringify({ id: args.id, version: args.version })
+            })
+          ])
 
           const rulesDir = `${process.env.HOME}/.config/opencode/rules`
           await Bun.$`mkdir -p ${rulesDir}`
 
           let ruleContent = content.content
-          
+
           if (args.languages && args.languages.length > 0) {
             const languageTags = args.languages.map(lang => `@${lang}`).join("\n")
             ruleContent = `${languageTags}\n\n${content.content}`
+          }
+
+          const inferredGlobs = args.languages && args.languages.length > 0
+            ? args.languages.flatMap(lang => LANGUAGE_MAP[lang] || [`**/*.${lang}`])
+            : inferGlobsFromTagsAndName(rule.tags || [], rule.name)
+
+          if (inferredGlobs.length > 0) {
+            const globsYaml = inferredGlobs.map(g => `  - '${g}'`).join("\n")
+            const yamlFrontMatter = `---\nglobs:\n${globsYaml}\n---\n`
+            ruleContent = `${yamlFrontMatter}\n${ruleContent}`
           }
 
           const rulePath = `${rulesDir}/${content.name}.md`
@@ -324,7 +375,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             message: `Rule "${content.name}" installed successfully!`,
             path: rulePath,
             version: content.version,
-            languages: args.languages || "all files"
+            globs: inferredGlobs.length > 0 ? inferredGlobs : ["**/*"]
           })
         }
       }),

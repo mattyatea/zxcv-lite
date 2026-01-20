@@ -193,6 +193,78 @@ Rule content here...
 
 OpenCode will only apply this rule when working with TypeScript or JavaScript files.
 
+## Automatic Rule Injection with opencode-rules
+
+This plugin automatically detects languages from rule tags and names, then configures the `opencode-rules` plugin to inject rules only when relevant files are accessed.
+
+### Prerequisites
+
+Install the [opencode-rules](https://github.com/frap129/opencode-rules) plugin:
+
+1. Add to `opencode.json`:
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["zxcv-opencode-plugin", "opencode-rules"]
+}
+```
+
+2. Rules will be automatically injected based on file patterns.
+
+### How It Works
+
+When you install a rule without specifying languages:
+
+```bash
+zxcv_install_rule with id: "typescript-general"
+```
+
+The plugin will:
+1. Detect `typescript` from the rule's tags or name
+2. Generate globs: `["**/*.ts", "**/*.tsx"]`
+3. Save as `.mdc` with YAML front matter:
+
+```yaml
+---
+globs:
+  - '**/*.ts'
+  - '**/*.tsx'
+---
+
+@typescript
+
+# Rule Content...
+```
+
+This ensures the rule is only applied when editing TypeScript files.
+
+### Manual Language Specification
+
+You can override auto-detection by specifying languages:
+
+```bash
+zxcv_install_rule with id: "rule-id", languages: ["typescript", "javascript"]
+```
+
+### Supported Languages
+
+The following languages are auto-detected from tags and rule names:
+
+- `typescript` → `**/*.ts`, `**/*.tsx`
+- `javascript` → `**/*.js`, `**/*.jsx`, `**/*.mjs`
+- `java` → `**/*.java`
+- `python` → `**/*.py`
+- `go` → `**/*.go`
+- `rust` → `**/*.rs`
+- `ruby` → `**/*.rb`
+- `php` → `**/*.php`
+- `csharp` → `**/*.cs`
+- `cpp` → `**/*.cpp`, `**/*.cc`, `**/*.hpp`
+- `c` → `**/*.c`, `**/*.h`
+- `swift` → `**/*.swift`
+- `kotlin` → `**/*.kt`, `**/*.kts`
+- `scala` → `**/*.scala`
+
 ## Configuration
 
 The plugin uses the default API URL: `http://localhost:5144/api`
