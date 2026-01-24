@@ -2,15 +2,25 @@ import { GitHub } from "arctic";
 import type { CloudflareEnv } from "../types/env";
 
 export function createOAuthProviders(env: CloudflareEnv, request?: Request) {
-	// DEPRECATED: Web flow is no longer supported
-	throw new Error("Web OAuth flow has been deprecated. Please use device flow instead.");
+	const redirectUri = request
+		? `${new URL(request.url).origin}/auth/callback/github`
+		: "https://localhost:3000/auth/callback/github";
+	const github = new GitHub(
+		env.GH_OAUTH_CLIENT_ID || "",
+		env.GH_OAUTH_CLIENT_SECRET || "",
+		redirectUri,
+	);
+
+	return { github };
 }
 
 export function createDeviceOAuthProviders(env: CloudflareEnv) {
-	// Device flow doesn't need redirect URI
+	// Device flow doesn't need redirect URI but the client requires one
+	const redirectUri = "https://localhost:3000/auth/callback/github";
 	const github = new GitHub(
 		env.GH_OAUTH_CLIENT_ID,
 		env.GH_OAUTH_CLIENT_SECRET,
+		redirectUri,
 	);
 
 	return { github };

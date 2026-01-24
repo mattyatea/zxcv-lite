@@ -56,6 +56,25 @@ export const authContract = {
 			}),
 		),
 
+	oauthInitialize: oc
+		.route({
+			method: "POST",
+			path: "/auth/oauthInitialize",
+			description: "Initialize OAuth Authorization Code flow",
+		})
+		.input(
+			z.object({
+				provider: z.enum(["github"]),
+				redirectUrl: z.string().optional(),
+				action: z.enum(["login", "register"]),
+			}),
+		)
+		.output(
+			z.object({
+				authorizationUrl: z.string(),
+			}),
+		),
+
 	oauthDeviceCallback: oc
 		.route({
 			method: "POST",

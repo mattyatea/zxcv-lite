@@ -1,9 +1,18 @@
 import { ORPCError } from "@orpc/server";
 import { AuthService } from "../../services/AuthService";
 import { createJWT, createRefreshToken, verifyRefreshToken } from "../../services/AuthTokenService";
-import { cleanupExpiredDeviceCodes } from "../../services/OAuthCleanupService";
-import { createDeviceOAuthProviders, createOAuthProviders } from "../../services/OAuthService";
-import { validateOAuthResponse } from "../../services/OAuthSecurityService";
+import { cleanupExpiredDeviceCodes, cleanupExpiredOAuthStates } from "../../services/OAuthCleanupService";
+import {
+	createDeviceOAuthProviders,
+	createOAuthProviders,
+	generateState,
+} from "../../services/OAuthService";
+import {
+	OAUTH_CONFIG,
+	generateNonce,
+	performOAuthSecurityChecks,
+	validateOAuthResponse,
+} from "../../services/OAuthSecurityService";
 import { UserPackingService } from "../../services/packing/UserPackingService";
 import type { AuthUser } from "../../services/AuthContextService";
 import { createLogger } from "../../services/LoggerService";
@@ -87,6 +96,56 @@ export const authProcedures = {
 
 		return { accessToken, refreshToken: newRefreshToken, user: authUser };
 	}),
+
+	/**
+	 * OAuth初期化
+	 */
+	oauthInitialize: os.auth.oauthInitialize
+		.use(authRateLimit)
+		.handler(async ({ input, context }) => {
+			const { provider, redirectUrl, action } = input as {
+				provider: "github";
+				redirectUrl?: string;
+				action: "login" | "register";
+			};
+			const { db, env, cloudflare } = context;
+			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+
+			const providers = createOAuthProviders(env, cloudflare?.request);
+
+			const clientIp =
+				cloudflare?.request?.headers?.get("CF-Connecting-IP") ||
+				cloudflare?.request?.headers?.get("X-Forwarded-For") ||
+				"unknown";
+
+			await performOAuthSecurityChecks(db, clientIp, locale);
+
+			const stateData = {
+				random: generateState(),
+				action,
+				nonce: generateNonce(),
+			};
+			const state = Buffer.from(JSON.stringify(stateData)).toString("base64url");
+
+			await cleanupExpiredOAuthStates(db);
+
+			const expiresAt = Math.floor(Date.now() / 1000) + OAUTH_CONFIG.STATE_EXPIRATION;
+			await db.oAuthState.create({
+				data: {
+					id: generateId(),
+					state: stateData.random,
+					provider,
+					redirectUrl: redirectUrl || "/",
+					expiresAt,
+					clientIp,
+				},
+			});
+
+			const url = providers.github.createAuthorizationURL(state, ["user:email"]);
+			return {
+				authorizationUrl: url.toString(),
+			};
+		}),
 
 	/**
 	 * OAuth Device Flow 初期化
