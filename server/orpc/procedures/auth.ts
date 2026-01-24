@@ -89,27 +89,121 @@ export const authProcedures = {
 	}),
 
 	/**
-	 * OAuth初期化
+	 * OAuth Device Flow 初期化
 	 */
-	oauthInitialize: os.auth.oauthInitialize
+	oauthDeviceInitialize: os.auth.oauthDeviceInitialize
 		.use(authRateLimit)
 		.handler(async ({ input, context }) => {
-			const { provider, redirectUrl, action } = input as {
+			const { provider, scopes } = input as {
 				provider: "github";
-				redirectUrl?: string;
-				action?: "login" | "register";
+				scopes: string[];
 			};
 			const { db, env, cloudflare } = context;
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+			const logger = createLogger(env);
 
-			const { createOAuthProviders, generateState, generateCodeVerifier } = await import(
-				"../../services/OAuthService",
-			);
-			const providers = createOAuthProviders(env, cloudflare?.request);
+			// Import device OAuth providers
+			const { createDeviceOAuthProviders } = await import("../../services/OAuthService");
+			const providers = createDeviceOAuthProviders(env);
 
-			// Import security utilities
-			const { validateRedirectUrl, performOAuthSecurityChecks, generateNonce, OAUTH_CONFIG } =
-				await import("../../services/OAuthSecurityService");
+			// Get client information for security tracking
+			const clientIp =
+				cloudflare?.request?.headers?.get("CF-Connecting-IP") ||
+				cloudflare?.request?.headers?.get("X-Forwarded-For") ||
+				"unknown";
+			const userAgent = cloudflare?.request?.headers?.get("User-Agent") || "unknown";
+
+			// Clean up expired device codes before creating new one
+			const { cleanupExpiredDeviceCodes } = await import("../../services/OAuthCleanupService");
+			await cleanupExpiredDeviceCodes(db);
+
+			try {
+				// Generate device code by calling GitHub's device flow endpoint directly
+				const deviceAuthResponse = await fetch("https://github.com/login/device/code", {
+					method: "POST",
+					headers: {
+						"Accept": "application/json",
+						"User-Agent": "zxcv-cli",
+					},
+					body: JSON.stringify({
+						client_id: env.GH_OAUTH_CLIENT_ID,
+						scope: scopes.join(" "),
+					}),
+				});
+
+				if (!deviceAuthResponse.ok) {
+					logger.error("Device authorization failed", undefined, {
+						status: deviceAuthResponse.status,
+						text: await deviceAuthResponse.text(),
+					});
+					throw new ORPCError("INTERNAL_SERVER_ERROR", {
+						message: "Failed to initiate device authorization",
+					});
+				}
+
+				const deviceData = (await deviceAuthResponse.json()) as {
+					device_code: string;
+					user_code: string;
+					verification_uri: string;
+					expires_in: number;
+					interval: number;
+				};
+
+				// Store device code in database for tracking
+				const { generateId } = await import("../../utils/cryptoHash");
+				const expiresAt = Math.floor(Date.now() / 1000) + deviceData.expires_in;
+
+				await db.oAuthDeviceCode.create({
+					data: {
+						id: generateId(),
+						deviceCode: deviceData.device_code,
+						userCode: deviceData.user_code,
+						provider,
+						clientId: env.GH_OAUTH_CLIENT_ID,
+						clientIp,
+						userAgent,
+						scopes: JSON.stringify(scopes),
+						expiresAt,
+						interval: deviceData.interval || 5,
+					},
+				});
+
+				logger.info("Device code created", {
+					userCode: deviceData.user_code,
+					expiresIn: deviceData.expires_in,
+				});
+
+				return {
+					device_code: deviceData.device_code,
+					user_code: deviceData.user_code,
+					verification_uri: deviceData.verification_uri,
+					expires_in: deviceData.expires_in,
+					interval: deviceData.interval || 5,
+				};
+			} catch (error) {
+				logger.error("Device initialization error", error as Error);
+				if (error instanceof ORPCError) {
+					throw error;
+				}
+				throw new ORPCError("INTERNAL_SERVER_ERROR", {
+					message: "Failed to initialize device authorization",
+				});
+			}
+		}),
+
+	/**
+	 * OAuth Device Flow コールバック
+	 */
+	oauthDeviceCallback: os.auth.oauthDeviceCallback.use(dbProvider).handler(async ({ input, context }) => {
+			const { deviceCode } = input as { deviceCode: string };
+			const { db, env, cloudflare } = context;
+			const authService = new AuthService(db, env);
+			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+			const logger = createLogger(env);
+
+			logger.debug("Device callback started", {
+				deviceCode: `${deviceCode?.substring(0, 10)}...`,
+			});
 
 			// Get client IP for security tracking
 			const clientIp =
@@ -117,43 +211,211 @@ export const authProcedures = {
 				cloudflare?.request?.headers?.get("X-Forwarded-For") ||
 				"unknown";
 
-			// Perform security checks
-			await performOAuthSecurityChecks(db, clientIp, locale);
+			// Find device code in database
+			const deviceRecord = await db.oAuthDeviceCode.findUnique({
+				where: { deviceCode },
+			});
 
-			// Generate state for CSRF protection with action encoded
-			const stateData = {
-				random: generateState(),
-				action,
-				nonce: generateNonce(), // Additional entropy
-			};
-			const state = Buffer.from(JSON.stringify(stateData)).toString("base64url");
+			if (!deviceRecord) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Invalid device code",
+				});
+			}
 
-			// Clean up expired states before creating new one
-			const { cleanupExpiredOAuthStates } = await import("../../services/OAuthCleanupService");
-			await cleanupExpiredOAuthStates(db);
+			// Check if expired
+			if (deviceRecord.expiresAt < Math.floor(Date.now() / 1000)) {
+				// Clean up expired device code
+				await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Device code has expired",
+				});
+			}
 
-			// Store state in database
-			const { generateId } = await import("../../utils/cryptoHash");
-			const expiresAt = Math.floor(Date.now() / 1000) + 600; // 10 minutes
+			// Rate limiting check
+			if (deviceRecord.attemptCount >= 50) {
+				throw new ORPCError("TOO_MANY_REQUESTS", {
+					message: "Too many polling attempts. Please restart the authentication process.",
+				});
+			}
 
-			await db.oAuthState.create({
+			// Update attempt count and last poll time
+			await db.oAuthDeviceCode.update({
+				where: { id: deviceRecord.id },
 				data: {
-					id: generateId(),
-					state: stateData.random, // Store the random part, not the encoded state
-					provider,
-					redirectUrl: redirectUrl || "/",
-					expiresAt,
-					clientIp, // Store the client IP for verification
+					attemptCount: deviceRecord.attemptCount + 1,
+					lastPollAt: Math.floor(Date.now() / 1000),
 				},
 			});
 
-			// Generate authorization URL
-			const url = providers.github.createAuthorizationURL(state, ["user:email"]);
-			const authorizationUrl = url.toString();
+			// Check if enough time has passed since last poll
+			const minInterval = deviceRecord.interval || 5;
+			if (deviceRecord.lastPollAt) {
+				const timeSinceLastPoll = Math.floor(Date.now() / 1000) - deviceRecord.lastPollAt;
+				if (timeSinceLastPoll < minInterval) {
+					throw new ORPCError("TOO_MANY_REQUESTS", {
+						message: "Please slow down polling requests",
+					});
+				}
+			}
 
-			return {
-				authorizationUrl,
-			};
+			try {
+				// Import device OAuth providers
+				const { createDeviceOAuthProviders } = await import("../../services/OAuthService");
+				const providers = createDeviceOAuthProviders(env);
+
+				// Poll GitHub for token
+				const tokenUrl = "https://github.com/login/oauth/access_token";
+				const tokenResponse = await fetch(tokenUrl, {
+					method: "POST",
+					headers: {
+						"Accept": "application/json",
+						"User-Agent": "zxcv-cli",
+					},
+					body: JSON.stringify({
+						client_id: env.GH_OAUTH_CLIENT_ID,
+						device_code: deviceCode,
+						grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+					}),
+				});
+
+				if (!tokenResponse.ok) {
+					const errorData = tokenResponse.status === 400 
+						? await tokenResponse.json() as any
+						: null;
+
+					if (errorData?.error) {
+						// Handle OAuth device flow errors
+						switch (errorData.error) {
+							case "authorization_pending":
+								return {
+									error: "authorization_pending",
+									error_description: "Authorization pending - please complete authentication in your browser",
+								};
+							case "slow_down":
+								return {
+									error: "slow_down",
+									error_description: "Please slow down polling - authentication still pending",
+								};
+							case "access_denied":
+								await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+								return {
+									error: "access_denied",
+									error_description: "Access denied - user declined the authorization request",
+								};
+							case "expired_token":
+								await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+								return {
+									error: "expired_token",
+									error_description: "Device code has expired - please start a new authentication",
+								};
+							default:
+								return {
+									error: errorData.error,
+									error_description: errorData.error_description || "Unknown error occurred",
+								};
+						}
+					}
+
+					logger.error("Token request failed", undefined, {
+						status: tokenResponse.status,
+						text: await tokenResponse.text(),
+					});
+					throw new ORPCError("INTERNAL_SERVER_ERROR", {
+						message: "Failed to obtain access token",
+					});
+				}
+
+				const tokenData = (await tokenResponse.json()) as {
+					access_token: string;
+					token_type: string;
+					scope: string;
+				};
+
+				// Fetch user info from GitHub using the access token
+				const [userResponse, emailResponse] = await Promise.all([
+					fetch("https://api.github.com/user", {
+						headers: {
+							Authorization: `Bearer ${tokenData.access_token}`,
+							"User-Agent": "zxcv-app",
+						},
+					}),
+					fetch("https://api.github.com/user/emails", {
+						headers: {
+							Authorization: `Bearer ${tokenData.access_token}`,
+							"User-Agent": "zxcv-app",
+						},
+					}),
+				]);
+
+				if (!userResponse.ok || !emailResponse.ok) {
+					logger.error("GitHub API error", undefined, {
+						userStatus: userResponse.status,
+						userText: await userResponse.text(),
+						emailStatus: emailResponse.status,
+						emailText: await emailResponse.text(),
+					});
+					throw new ORPCError("INTERNAL_SERVER_ERROR", {
+						message: "GitHub authentication failed",
+					});
+				}
+
+				const githubUser = (await userResponse.json()) as {
+					id: number;
+					login: string;
+					name?: string;
+				};
+				const emails = (await emailResponse.json()) as Array<{
+					email: string;
+					primary: boolean;
+					verified: boolean;
+				}>;
+				const primaryEmail = emails.find((e) => e.primary)?.email || emails[0]?.email;
+
+				if (!primaryEmail) {
+					throw new ORPCError("BAD_REQUEST", {
+						message: authErrors.oauthNoEmail(locale, "GitHub"),
+					});
+				}
+
+				const userInfo = {
+					id: githubUser.id.toString(),
+					email: primaryEmail,
+					username: githubUser.login,
+				};
+
+				// Use AuthService to handle OAuth login
+				const result = await authService.handleOAuthLogin("github", userInfo, "login");
+
+				// Clean up device code
+				await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+
+				// Check if username is required
+				if (result && "requiresUsername" in result) {
+					return {
+						tempToken: (result as any).tempToken,
+						provider: (result as any).provider,
+						requiresUsername: true as const,
+					};
+				}
+
+				logger.info("Device authentication successful", { 
+					userId: (result as any)?.user?.id || 'unknown' 
+				});
+
+				return {
+					accessToken: (result as any).accessToken,
+					refreshToken: (result as any).refreshToken,
+					user: (result as any).user,
+				};
+			} catch (error) {
+				logger.error("Device callback error", error as Error);
+				if (error instanceof ORPCError) {
+					throw error;
+				}
+				throw new ORPCError("INTERNAL_SERVER_ERROR", {
+					message: "Device authentication failed",
+				});
+			}
 		}),
 
 	/**

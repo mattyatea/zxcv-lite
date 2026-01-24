@@ -13,4 +13,8 @@ export interface ExtendedEnv extends Env {
 
 	// Prisma Client (optional, created on demand)
 	prisma?: PrismaClient;
+
+	// GitHub OAuth secrets
+	GH_OAUTH_CLIENT_ID: string;
+	GH_OAUTH_CLIENT_SECRET: string;
 }

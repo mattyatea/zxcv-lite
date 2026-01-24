@@ -22,3 +22,26 @@ export async function cleanupExpiredOAuthStates(db: PrismaClient): Promise<numbe
 		return 0;
 	}
 }
+
+/**
+ * Clean up expired device codes to prevent database bloat
+ * This should be called periodically (e.g., via a cron job or before each device flow)
+ */
+export async function cleanupExpiredDeviceCodes(db: PrismaClient): Promise<number> {
+	const now = Math.floor(Date.now() / 1000);
+
+	try {
+		const result = await db.oAuthDeviceCode.deleteMany({
+			where: {
+				expiresAt: {
+					lt: now,
+				},
+			},
+		});
+
+		return result.count;
+	} catch (error) {
+		console.error("Failed to cleanup expired device codes:", error);
+		return 0;
+	}
+}

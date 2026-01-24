@@ -34,23 +34,54 @@ export const authContract = {
 		)
 		.output(SuccessResponseSchema),
 
-	oauthInitialize: oc
+	oauthDeviceInitialize: oc
 		.route({
 			method: "POST",
-			path: "/auth/oauthInitialize",
-			description: "Initialize OAuth flow",
+			path: "/auth/oauthDeviceInitialize",
+			description: "Initialize OAuth Device Flow",
 		})
 		.input(
 			z.object({
 				provider: z.enum(["github"]),
-				redirectUrl: z.string().optional(),
-				action: z.enum(["login", "register"]).optional().default("login"),
+				scopes: z.array(z.string()).optional().default(["user:email"]),
 			}),
 		)
 		.output(
 			z.object({
-				authorizationUrl: z.string(),
+				device_code: z.string(),
+				user_code: z.string(),
+				verification_uri: z.string(),
+				expires_in: z.number(),
+				interval: z.number(),
 			}),
+		),
+
+	oauthDeviceCallback: oc
+		.route({
+			method: "POST",
+			path: "/auth/oauthDeviceCallback",
+			description: "Handle OAuth Device Flow callback",
+		})
+		.input(
+			z.object({
+				deviceCode: z.string(),
+			}),
+		)
+		.output(
+			z.union([
+				TokensSchema.extend({
+					user: AuthUserSchema,
+				}),
+				z.object({
+					tempToken: z.string(),
+					provider: z.string(),
+					requiresUsername: z.literal(true),
+				}),
+				z.object({
+					error: z.string(),
+					error_description: z.string().optional(),
+				}),
+			]),
 		),
 
 	oauthCallback: oc

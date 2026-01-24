@@ -252,6 +252,28 @@ model OAuthTempRegistration {
   @@map("oauth_temp_registrations")
 }
 
+model OAuthDeviceCode {
+  id           String @id
+  deviceCode   String @unique @map("device_code")
+  userCode     String @unique @map("user_code")
+  provider     String
+  clientId     String @map("client_id")
+  clientIp     String? @map("client_ip")
+  userAgent    String? @map("user_agent")
+  scopes       String? // JSON array stored as text
+  expiresAt    Int    @map("expires_at")
+  interval     Int    @default(5) // Polling interval in seconds
+  attemptCount Int    @default(0) @map("attempt_count") // For rate limiting
+  lastPollAt   Int?   @map("last_poll_at")
+  createdAt    Int    @default(dbgenerated("(unixepoch())")) @map("created_at")
+
+  @@unique([deviceCode], map: "device_codes_device_code_unique")
+  @@unique([userCode], map: "device_codes_user_code_unique")
+  @@index([expiresAt])
+  @@index([clientIp])
+  @@map("oauth_device_codes")
+}
+
 model Report {
   id          String       @id
   ruleId      String       @map("rule_id")
