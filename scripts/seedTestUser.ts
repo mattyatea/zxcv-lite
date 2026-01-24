@@ -1,5 +1,5 @@
 import { createPrismaClient } from "~/server/services/PrismaService";
-import { hashPassword } from "~/server/utils/cryptoHash";
+import { generateId, hashPassword } from "~/server/utils/cryptoHash";
 
 // ローカル開発用のテストユーザーを作成
 async function seedTestUser() {
@@ -23,7 +23,6 @@ async function seedTestUser() {
 
 		// テストユーザーを作成
 		const hashedPassword = await hashPassword("password123");
-		const { generateId } = await import("~/server/utils/cryptoHash");
 		const user = await prisma.user.create({
 			data: {
 				id: generateId(),

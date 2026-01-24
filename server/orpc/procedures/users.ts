@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/server";
+import { nanoid } from "nanoid";
 import { UserPackingService } from "../../services/packing/UserPackingService";
 import { UserService } from "../../services/UserService";
 import { hashPassword, verifyPassword } from "../../utils/cryptoHash";
@@ -321,7 +322,6 @@ export const uploadAvatar = os.users.uploadAvatar
 			}
 
 			// Generate unique filename
-			const { nanoid } = await import("nanoid");
 			const avatarKey = `avatars/${user.id}/${nanoid()}.${ext}`;
 
 			// Upload to R2

@@ -1,5 +1,9 @@
 import { ORPCError } from "@orpc/server";
 import { AuthService } from "../../services/AuthService";
+import { createJWT, createRefreshToken, verifyRefreshToken } from "../../services/AuthTokenService";
+import { cleanupExpiredDeviceCodes } from "../../services/OAuthCleanupService";
+import { createDeviceOAuthProviders, createOAuthProviders } from "../../services/OAuthService";
+import { validateOAuthResponse } from "../../services/OAuthSecurityService";
 import { UserPackingService } from "../../services/packing/UserPackingService";
 import type { AuthUser } from "../../services/AuthContextService";
 import { createLogger } from "../../services/LoggerService";
@@ -21,7 +25,6 @@ export const authProcedures = {
 
 		try {
 			// Verify refresh token
-			const { verifyRefreshToken } = await import("../../services/AuthTokenService");
 			const userId = await verifyRefreshToken(refreshToken, env);
 			if (!userId) {
 				throw new ORPCError("UNAUTHORIZED", { message: "Invalid token" });
@@ -52,9 +55,6 @@ export const authProcedures = {
 		const userPackingService = new UserPackingService();
 
 		// Verify refresh token
-		const { verifyRefreshToken, createRefreshToken, createJWT } = await import(
-			"../../services/AuthTokenService",
-		);
 		const userId = await verifyRefreshToken(refreshToken, env);
 
 		if (!userId) {
@@ -103,7 +103,6 @@ export const authProcedures = {
 			const logger = createLogger(env);
 
 			// Import device OAuth providers
-			const { createDeviceOAuthProviders } = await import("../../services/OAuthService");
 			const providers = createDeviceOAuthProviders(env);
 
 			// Get client information for security tracking
@@ -114,7 +113,6 @@ export const authProcedures = {
 			const userAgent = cloudflare?.request?.headers?.get("User-Agent") || "unknown";
 
 			// Clean up expired device codes before creating new one
-			const { cleanupExpiredDeviceCodes } = await import("../../services/OAuthCleanupService");
 			await cleanupExpiredDeviceCodes(db);
 
 			try {
@@ -149,9 +147,8 @@ export const authProcedures = {
 					interval: number;
 				};
 
-				// Store device code in database for tracking
-				const { generateId } = await import("../../utils/cryptoHash");
-				const expiresAt = Math.floor(Date.now() / 1000) + deviceData.expires_in;
+			// Store device code in database for tracking
+			const expiresAt = Math.floor(Date.now() / 1000) + deviceData.expires_in;
 
 				await db.oAuthDeviceCode.create({
 					data: {
@@ -259,9 +256,8 @@ export const authProcedures = {
 			}
 
 			try {
-				// Import device OAuth providers
-				const { createDeviceOAuthProviders } = await import("../../services/OAuthService");
-				const providers = createDeviceOAuthProviders(env);
+			// Import device OAuth providers
+			const providers = createDeviceOAuthProviders(env);
 
 				// Poll GitHub for token
 				const tokenUrl = "https://github.com/login/oauth/access_token";
@@ -438,11 +434,7 @@ export const authProcedures = {
 			state,
 		});
 
-		const { createOAuthProviders } = await import("../../services/OAuthService");
 		const providers = createOAuthProviders(env, cloudflare?.request);
-
-		// Import security utilities
-		const { validateOAuthResponse } = await import("../../services/OAuthSecurityService");
 
 		// Validate OAuth response parameters
 		validateOAuthResponse({ code, state }, locale);
