@@ -409,6 +409,7 @@
 			"accessDenied": "ユーザーがアクセスを拒否しました",
 			"invalidRequest": "無効なリクエストです",
 			"unauthorizedClient": "認証されていないクライアントです",
+			"clientNotConfigured": "OAuthクライアントが設定されていません",
 			"unsupportedResponseType": "サポートされていないレスポンスタイプです",
 			"invalidScope": "無効なスコープです",
 			"serverError": "認証サーバーでエラーが発生しました",

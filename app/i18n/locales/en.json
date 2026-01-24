@@ -500,6 +500,7 @@
 			"accessDenied": "User denied access",
 			"invalidRequest": "Invalid request",
 			"unauthorizedClient": "Unauthorized client",
+			"clientNotConfigured": "OAuth client is not configured",
 			"unsupportedResponseType": "Unsupported response type",
 			"invalidScope": "Invalid scope",
 			"serverError": "Authentication server error",

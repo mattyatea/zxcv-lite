@@ -6,8 +6,8 @@ export function createOAuthProviders(env: CloudflareEnv, request?: Request) {
 		? `${new URL(request.url).origin}/auth/callback/github`
 		: "https://localhost:3000/auth/callback/github";
 	const github = new GitHub(
-		env.GH_OAUTH_CLIENT_ID || "",
-		env.GH_OAUTH_CLIENT_SECRET || "",
+		env.GH_OAUTH_CLIENT_ID,
+		env.GH_OAUTH_CLIENT_SECRET,
 		redirectUri,
 	);
 

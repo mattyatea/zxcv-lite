@@ -15,6 +15,7 @@ import {
 } from "../../services/OAuthSecurityService";
 import { UserPackingService } from "../../services/packing/UserPackingService";
 import type { AuthUser } from "../../services/AuthContextService";
+import type { CloudflareEnv } from "../../types/env";
 import { createLogger } from "../../services/LoggerService";
 import { generateId } from "../../utils/cryptoHash";
 import { authErrors } from "../../utils/i18nTranslate";
@@ -23,6 +24,14 @@ import { getLocaleFromRequest } from "../../utils/i18nLocale";
 import { os } from "../index";
 import { dbProvider } from "../middleware/db";
 import { authRateLimit } from "../middleware/rateLimit";
+
+const ensureGitHubOAuthConfigured = (env: CloudflareEnv, locale: Locale) => {
+	if (!env.GH_OAUTH_CLIENT_ID || !env.GH_OAUTH_CLIENT_SECRET) {
+		throw new ORPCError("INTERNAL_SERVER_ERROR", {
+			message: authErrors.oauthClientNotConfigured(locale),
+		});
+	}
+};
 
 export const authProcedures = {
 	/**
@@ -110,6 +119,7 @@ export const authProcedures = {
 			};
 			const { db, env, cloudflare } = context;
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+			ensureGitHubOAuthConfigured(env, locale);
 
 			const providers = createOAuthProviders(env, cloudflare?.request);
 
@@ -160,6 +170,7 @@ export const authProcedures = {
 			const { db, env, cloudflare } = context;
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
 			const logger = createLogger(env);
+			ensureGitHubOAuthConfigured(env, locale);
 
 			// Import device OAuth providers
 			const providers = createDeviceOAuthProviders(env);
@@ -256,6 +267,7 @@ export const authProcedures = {
 			const authService = new AuthService(db, env);
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
 			const logger = createLogger(env);
+			ensureGitHubOAuthConfigured(env, locale);
 
 			logger.debug("Device callback started", {
 				deviceCode: `${deviceCode?.substring(0, 10)}...`,
@@ -485,6 +497,7 @@ export const authProcedures = {
 		const { db, env, cloudflare } = context;
 		const authService = new AuthService(db, env);
 		const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+		ensureGitHubOAuthConfigured(env, locale);
 
 		const logger = createLogger(env);
 		logger.debug("OAuth callback started", {
