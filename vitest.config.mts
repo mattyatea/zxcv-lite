@@ -56,7 +56,7 @@ export default defineWorkersConfig({
 				},
 				miniflare: {
 					compatibilityFlags: ["experimental", "nodejs_compat"],
-					compatibilityDate: "2025-07-15",
+					compatibilityDate: "2026-01-25",
 					bindings: {
 						MIGRATIONS: migrations,
 						// Add JWT_SECRET and other environment variables

@@ -1,7 +1,7 @@
 # Base configuration
 name = "zxcv-lite"
 main = "./.output/server/index.mjs"
-compatibility_date = "2025-09-15"
+compatibility_date = "2026-01-25"
 compatibility_flags = ["nodejs_compat"]
 
 [observability]
