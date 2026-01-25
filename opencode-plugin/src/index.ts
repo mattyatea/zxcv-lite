@@ -1,8 +1,9 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 import { createORPCClient } from "@orpc/client"
-import { RPCLink } from "@orpc/client/fetch"
 import type { ContractRouterClient } from "@orpc/contract"
+import type { JsonifiedClient } from "@orpc/openapi-client"
+import { OpenAPILink } from "@orpc/openapi-client/fetch"
 import { contract } from "../../server/orpc/contracts"
 
 declare const Bun: any
@@ -11,28 +12,26 @@ declare global {
 }
 
 interface Config {
-  rpcUrl: string
+  apiUrl: string
 }
 
 let accessToken: string | null = null
 let refreshToken: string | null = null
 
 const config: Config = {
-  rpcUrl:
+  apiUrl:
     process.env.ZXCV_RPC_URL ||
     process.env.OPENCODE_ZXCV_RPC_URL ||
-    "https://zxcv-lite.nanasi-apps.xyz/rpc"
+    "https://zxcv-lite.nanasi-apps.xyz/api"
 }
 
-const rpcLink = new RPCLink({
-  url: config.rpcUrl,
+const openAPILink = new OpenAPILink(contract, {
+  url: config.apiUrl,
+  headers: () => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
   fetch: async (request, init) => {
     const requestInit = init as RequestInit | undefined
     const headers = new Headers(requestInit?.headers)
     headers.set("Content-Type", "application/json")
-    if (accessToken) {
-      headers.set("Authorization", `Bearer ${accessToken}`)
-    }
 
     return fetch(request, {
       ...requestInit,
@@ -41,8 +40,8 @@ const rpcLink = new RPCLink({
   }
 })
 
-const rpcClient: ContractRouterClient<typeof contract> =
-  createORPCClient(rpcLink)
+const rpcClient: JsonifiedClient<ContractRouterClient<typeof contract>> =
+  createORPCClient(openAPILink)
 
 const isUnauthorizedError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false

@@ -257,7 +257,7 @@ The following languages are auto-detected from tags and rule names:
 
 ## Configuration
 
-The plugin uses the default RPC URL: `http://localhost:5144/rpc`
+The plugin uses the default API URL: `https://zxcv-lite.nanasi-apps.xyz/api`
 
 To change this, set `ZXCV_RPC_URL` (or `OPENCODE_ZXCV_RPC_URL`) before launching OpenCode.
 
