@@ -3,7 +3,7 @@
   "version": "1.2.0",
   "type": "module",
   "description": "OpenCode plugin for Zxcv AI Coding Rules platform",
-  "main": "dist/index.js",
+  "main": "dist/opencode-plugin/src/index.js",
   "files": [
     "dist/**/*",
     "README.md"
