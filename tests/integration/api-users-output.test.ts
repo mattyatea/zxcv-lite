@@ -1,6 +1,6 @@
 import { call } from "@orpc/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getProfile } from "../../server/orpc/procedures/users";
+import { getProfile, me } from "../../server/orpc/procedures/users";
 import { createMockContext } from "../helpers/mocks";
 
 describe("users API output", () => {
@@ -78,6 +78,58 @@ describe("users API output", () => {
 					updatedAt: 1700000200,
 				},
 			],
+		});
+	});
+
+	it("returns current user payload with stats", async () => {
+		const mockPrisma = (globalThis as any).__mockPrismaClient;
+		const viewer = {
+			id: "viewer_1",
+			email: "viewer@example.com",
+			username: "viewer",
+			emailVerified: true,
+			role: "user",
+		};
+		const userProfile = {
+			id: "viewer_1",
+			email: "viewer@example.com",
+			username: "viewer",
+			emailVerified: true,
+			role: "user",
+			displayName: "Viewer",
+			bio: "Hello",
+			location: "Tokyo",
+			website: "https://example.com",
+			avatarUrl: null,
+			createdAt: 1700000000,
+			updatedAt: 1700000100,
+		};
+
+		mockPrisma.user.findUnique.mockResolvedValueOnce(userProfile);
+		mockPrisma.rule.count.mockResolvedValueOnce(2);
+		mockPrisma.ruleStar.count.mockResolvedValueOnce(5);
+
+		const result = await call(me, undefined, {
+			context: createMockContext({ db: mockPrisma, user: viewer }),
+		});
+
+		expect(result).toEqual({
+			id: "viewer_1",
+			email: "viewer@example.com",
+			username: "viewer",
+			role: "user",
+			emailVerified: true,
+			displayName: "Viewer",
+			bio: "Hello",
+			location: "Tokyo",
+			website: "https://example.com",
+			avatarUrl: null,
+			createdAt: 1700000000,
+			updatedAt: 1700000100,
+			stats: {
+				rulesCount: 2,
+				totalStars: 5,
+			},
 		});
 	});
 });

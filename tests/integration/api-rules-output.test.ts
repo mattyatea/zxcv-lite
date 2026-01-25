@@ -55,6 +55,7 @@ describe("rules API output", () => {
 			id: "rule_123",
 			name: "example-rule",
 			userId: "user_123",
+			type: "rule",
 			visibility: "public",
 			description: "Example",
 			tags: ["api", "output"],

@@ -26,6 +26,7 @@ export const useAuthStore = defineStore("auth", () => {
 	const refreshToken = ref<string | null>(null);
 	const isLoading = ref(false);
 	const isInitialized = ref(false);
+	const initializePromise = ref<Promise<void> | null>(null);
 
 	// Getters
 	const isAuthenticated = computed(() => !!user.value && !!accessToken.value);
@@ -33,24 +34,36 @@ export const useAuthStore = defineStore("auth", () => {
 
 	// Initialize from localStorage on client side
 	const initializeAuth = async () => {
-		if (import.meta.client) {
-			const storedAccessToken = localStorage.getItem("access_token");
-			const storedRefreshToken = localStorage.getItem("refresh_token");
-
-			if (storedAccessToken) {
-				accessToken.value = storedAccessToken;
-			}
-			if (storedRefreshToken) {
-				refreshToken.value = storedRefreshToken;
-			}
-
-			// トークンがある場合は最新のユーザー情報を取得
-			if (storedAccessToken) {
-				await fetchCurrentUser();
-			}
+		if (isInitialized.value) {
+			return;
 		}
-		// 初期化完了をマーク
-		isInitialized.value = true;
+		if (initializePromise.value) {
+			await initializePromise.value;
+			return;
+		}
+
+		initializePromise.value = (async () => {
+			if (import.meta.client) {
+				const storedAccessToken = localStorage.getItem("access_token");
+				const storedRefreshToken = localStorage.getItem("refresh_token");
+
+				if (storedAccessToken) {
+					accessToken.value = storedAccessToken;
+				}
+				if (storedRefreshToken) {
+					refreshToken.value = storedRefreshToken;
+				}
+
+				// トークンがある場合は最新のユーザー情報を取得
+				if (storedAccessToken) {
+					await fetchCurrentUser();
+				}
+			}
+			// 初期化完了をマーク
+			isInitialized.value = true;
+		})();
+
+		await initializePromise.value;
 	};
 
 	// Actions

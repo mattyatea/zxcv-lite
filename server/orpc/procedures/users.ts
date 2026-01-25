@@ -103,13 +103,28 @@ export const me = os.users.me
 			throw new ORPCError("NOT_FOUND", { message: "User not found" });
 		}
 
+		const normalizedUser = {
+			id: userProfile.id || user.id,
+			email: userProfile.email || user.email,
+			username: userProfile.username || user.username,
+			role: userProfile.role || user.role || "user",
+			emailVerified: userProfile.emailVerified ?? user.emailVerified ?? false,
+			displayName: userProfile.displayName ?? user.displayName ?? null,
+			bio: userProfile.bio ?? null,
+			location: userProfile.location ?? null,
+			website: userProfile.website ?? null,
+			avatarUrl: userProfile.avatarUrl ?? user.avatarUrl ?? null,
+			createdAt: userProfile.createdAt ?? Math.floor(Date.now() / 1000),
+			updatedAt: userProfile.updatedAt ?? Math.floor(Date.now() / 1000),
+		};
+
 		// Fetch stats using UserService
 		const stats = await userService.getUserStats(user.id, {
 			includeTotalStars: true,
 		});
 
 		// Use UserPackingService to pack user with stats
-		return userPackingService.packUserWithStats(userProfile, stats);
+		return userPackingService.packUserWithStats(normalizedUser, stats);
 	});
 
 export const updateProfile = os.users.updateProfile

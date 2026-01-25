@@ -317,6 +317,9 @@
 		"userNotFoundDesc": "指定されたユーザーは存在しないか、削除された可能性があります。",
 		"emailVerified": "メール認証済み",
 		"emailNotVerified": "メール未認証",
+		"labels": {
+			"createdAt": "登録日"
+		},
 		"createdRules": "作成したルール",
 		"registrationDate": "登録日",
 		"recentActivity": "最近のアクティビティ",
