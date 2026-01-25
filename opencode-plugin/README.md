@@ -13,7 +13,7 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
 
 ### Recommended
 
-1. Create or update `~/.condig/opencode/opencode.json`:
+1. Create or update `~/.config/opencode/opencode.json`:
    ```json
    {
      "$schema": "https://opencode.ai/config.json",
@@ -26,7 +26,7 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
 ### Using opencode
 ```text
 install zxcv-opencode-plugin and opencode-rules.
-Create or update `~/.condig/opencode/opencode.json`:
+Create or update `~/.config/opencode/opencode.json`:
    {
      "$schema": "https://opencode.ai/config.json",
      "plugin": ["zxcv-opencode-plugin","opencode-rules"]
@@ -257,9 +257,9 @@ The following languages are auto-detected from tags and rule names:
 
 ## Configuration
 
-The plugin uses the default API URL: `http://localhost:5144/api`
+The plugin uses the default RPC URL: `http://localhost:5144/rpc`
 
-To change this, modify the `config.apiUrl` variable in `src/index.ts` and rebuild.
+To change this, set `ZXCV_RPC_URL` (or `OPENCODE_ZXCV_RPC_URL`) before launching OpenCode.
 
 ## Token Storage
 

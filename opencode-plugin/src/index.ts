@@ -18,7 +18,10 @@ let accessToken: string | null = null
 let refreshToken: string | null = null
 
 const config: Config = {
-  rpcUrl: "https://zxcv-lite.nanasi-apps.xyz/rpc"
+  rpcUrl:
+    process.env.ZXCV_RPC_URL ||
+    process.env.OPENCODE_ZXCV_RPC_URL ||
+    "https://zxcv-lite.nanasi-apps.xyz/rpc"
 }
 
 const rpcLink = new RPCLink({
@@ -91,6 +94,7 @@ async function refreshTokens(): Promise<void> {
 
 async function saveTokens(): Promise<void> {
   const configDir = `${process.env.HOME}/.config/opencode`
+  await Bun.$`mkdir -p ${configDir}`
   await Bun.write(`${configDir}/zxcv-auth.json`, JSON.stringify({ accessToken, refreshToken }))
 }
 

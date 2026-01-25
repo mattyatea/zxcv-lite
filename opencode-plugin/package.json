@@ -1,6 +1,6 @@
 {
   "name": "opencode-rules-plugin",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "description": "OpenCode plugin for Zxcv AI Coding Rules platform",
   "main": "dist/opencode-plugin/src/index.js",
@@ -37,9 +37,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zxcv/opencode-plugin"
+    "url": "https://github.com/mattyatea/zxcv-lite"
   },
   "bugs": {
-    "url": "https://github.com/zxcv/opencode-plugin/issues"
+    "url": "https://github.com/mattyatea/zxcv-lite/issues"
   }
 }
