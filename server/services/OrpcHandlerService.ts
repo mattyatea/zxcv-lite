@@ -142,6 +142,39 @@ export function describeErrorForLog(error: unknown): {
 	};
 }
 
+export async function extractResponseErrorInfo(
+	response: Response,
+): Promise<Record<string, unknown> | undefined> {
+	if (response.status < 400) {
+		return undefined;
+	}
+
+	const contentType = response.headers.get("content-type") || "";
+	if (!contentType.includes("application/json")) {
+		return {
+			type: "response",
+			status: response.status,
+		};
+	}
+
+	try {
+		const payload = (await response.clone().json()) as Record<string, unknown>;
+		const code = typeof payload.code === "string" ? payload.code : undefined;
+		const message = typeof payload.message === "string" ? payload.message : undefined;
+		return {
+			type: "response",
+			status: response.status,
+			...(code ? { code } : {}),
+			...(message ? { message } : {}),
+		};
+	} catch {
+		return {
+			type: "response",
+			status: response.status,
+		};
+	}
+}
+
 export function ensureCloudflareContext(event: H3Event): void {
 	const context = event.context as BaseH3EventContext & Partial<H3EventContext>;
 

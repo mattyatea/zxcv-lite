@@ -8,6 +8,7 @@ import {
 	createEventLogger,
 	createRequestFromEvent,
 	describeErrorForLog,
+	extractResponseErrorInfo,
 	ensureCloudflareContext,
 	getAuthUser,
 	handleError,
@@ -67,6 +68,7 @@ export default defineEventHandler(async (event: H3Event) => {
 		status = response.response.status;
 		if (status >= 400) {
 			outcome = "error";
+			errorInfo = await extractResponseErrorInfo(response.response);
 		}
 
 		return await sendResponse(event, response.response);
