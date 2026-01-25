@@ -116,16 +116,20 @@ export const authProcedures = {
 					redirectUrl?: string;
 					action: "login" | "register";
 				};
-				const { db, env, cloudflare } = context;
-				const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-				if (context.logContext) {
-					context.logContext.oauth = {
-						provider,
-						action,
-						redirectUrl: redirectUrl || "/",
-					};
-				}
-				ensureGitHubOAuthConfigured(env, locale);
+			const { db, env, cloudflare } = context;
+			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+			if (context.logContext) {
+				context.logContext.oauth = {
+					provider,
+					action,
+					redirectUrl: redirectUrl || "/",
+					configPresent: {
+						clientId: Boolean(env.GH_OAUTH_CLIENT_ID),
+						clientSecret: Boolean(env.GH_OAUTH_CLIENT_SECRET),
+					},
+				};
+			}
+			ensureGitHubOAuthConfigured(env, locale);
 
 			const providers = createOAuthProviders(env, cloudflare?.request);
 
@@ -180,16 +184,20 @@ export const authProcedures = {
 					provider: "github";
 					scopes: string[];
 				};
-				const { db, env, cloudflare } = context;
-				const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-				ensureGitHubOAuthConfigured(env, locale);
-				if (context.logContext) {
-					context.logContext.oauth = {
-						flow: "device_initialize",
-						provider,
-						scopesCount: scopes.length,
-					};
-				}
+			const { db, env, cloudflare } = context;
+			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+			ensureGitHubOAuthConfigured(env, locale);
+			if (context.logContext) {
+				context.logContext.oauth = {
+					flow: "device_initialize",
+					provider,
+					scopesCount: scopes.length,
+					configPresent: {
+						clientId: Boolean(env.GH_OAUTH_CLIENT_ID),
+						clientSecret: Boolean(env.GH_OAUTH_CLIENT_SECRET),
+					},
+				};
+			}
 
 			// Import device OAuth providers
 			const providers = createDeviceOAuthProviders(env);
@@ -620,6 +628,10 @@ export const authProcedures = {
 			context.logContext.oauth = {
 				flow: "callback",
 				provider,
+				configPresent: {
+					clientId: Boolean(env.GH_OAUTH_CLIENT_ID),
+					clientSecret: Boolean(env.GH_OAUTH_CLIENT_SECRET),
+				},
 			};
 		}
 
