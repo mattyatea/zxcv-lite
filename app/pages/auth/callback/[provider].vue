@@ -192,6 +192,10 @@ const retry = () => {
 };
 
 const startOAuthCallback = async () => {
+	if (!import.meta.client) {
+		return;
+	}
+
 	if (hasStarted.value) {
 		return;
 	}
@@ -206,13 +210,15 @@ const startOAuthCallback = async () => {
 	await processOAuthCallback();
 };
 
-watch(
-	() => route.query,
-	() => {
-		startOAuthCallback();
-	},
-	{ immediate: true },
-);
+if (import.meta.client) {
+	watch(
+		() => route.query,
+		() => {
+			startOAuthCallback();
+		},
+		{ immediate: true },
+	);
+}
 
 // SEO
 useHead({
