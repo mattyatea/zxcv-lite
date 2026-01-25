@@ -1,13 +1,23 @@
+import { CloudflareRatelimiter } from "@orpc/experimental-ratelimit/cloudflare-ratelimit";
 import { ORPCError } from "@orpc/server";
 import { createLogger } from "../../services/LoggerService";
 import { createPrismaClient } from "../../services/PrismaService";
+import type { CloudflareEnv } from "../../types/env";
+import { authErrors } from "../../utils/i18nTranslate";
 import { getLocaleFromRequest } from "../../utils/i18nLocale";
 import { os } from "../index";
 
+export type RateLimitBinding =
+	| "AUTH_RATE_LIMITER"
+	| "REGISTER_RATE_LIMITER"
+	| "PASSWORD_RESET_RATE_LIMITER"
+	| "API_RATE_LIMITER"
+	| "AVATAR_UPLOAD_RATE_LIMITER"
+	| "REPORT_RATE_LIMITER";
+
 export interface RateLimitConfig {
-	windowMs: number; // Time window in milliseconds
-	maxRequests: number; // Maximum number of requests per window
 	keyPrefix: string; // Prefix for the rate limit key
+	binding: RateLimitBinding;
 }
 
 /**
@@ -19,71 +29,24 @@ export function createRateLimitMiddleware(config: RateLimitConfig) {
 		// Use existing db from context if available (for testing), otherwise create new one
 		const db = context.db || createPrismaClient(context.env.DB);
 		const { env } = context;
-		const { windowMs, maxRequests, keyPrefix } = config;
-
-		// Get client identifier (IP address or user ID)
-		const clientId = getClientIdentifier(context);
-		const key = `${keyPrefix}:${clientId}`;
-		const now = Math.floor(Date.now() / 1000);
-		const windowStart = Math.floor((Date.now() - windowMs) / 1000);
+		const { keyPrefix, binding } = config;
+		const request = context.cloudflare?.request;
+		const locale = getLocaleFromRequest(request);
 
 		try {
-			// Get or create rate limit record
-			const rateLimitRecord = await db.rateLimit.findUnique({
-				where: { key },
-			});
-
-			if (rateLimitRecord) {
-				// Check if window has expired
-				if (rateLimitRecord.resetAt <= now) {
-					// Reset the counter
-					await db.rateLimit.update({
-						where: { key },
-						data: {
-							count: 1,
-							resetAt: Math.floor((Date.now() + windowMs) / 1000),
-						},
-					});
-				} else {
-					// Check if limit exceeded
-					if (rateLimitRecord.count >= maxRequests) {
-						const retryAfter = rateLimitRecord.resetAt - now;
-						// throw new ORPCError("TOO_MANY_REQUESTS", {
-						// 	message: `リクエストが多すぎます。${retryAfter}秒後に再試行してください。`,
-						// });
-					}
-
-					// Increment counter
-					await db.rateLimit.update({
-						where: { key },
-						data: {
-							count: { increment: 1 },
-						},
+			const limiterBinding = (env as CloudflareEnv)[binding];
+			if (limiterBinding) {
+				const limiter = new CloudflareRatelimiter(limiterBinding);
+				const clientId = getClientIdentifier(context);
+				const key = `${keyPrefix}:${clientId}`;
+				const result = await limiter.limit(key);
+				if (!result.success) {
+					throw new ORPCError("TOO_MANY_REQUESTS", {
+						message: authErrors.rateLimit(locale),
+						data: { code: "RATE_LIMIT_EXCEEDED" },
 					});
 				}
-			} else {
-				// Create new rate limit record
-				await db.rateLimit.create({
-					data: {
-						key,
-						count: 1,
-						resetAt: Math.floor((Date.now() + windowMs) / 1000),
-					},
-				});
 			}
-
-			// Clean up old records periodically (1% chance)
-			if (Math.random() < 0.01) {
-				await db.rateLimit.deleteMany({
-					where: {
-						resetAt: { lt: now },
-					},
-				});
-			}
-
-			// Auto-detect locale from request headers
-			const request = context.cloudflare?.request;
-			const locale = getLocaleFromRequest(request);
 
 			// Continue to next middleware with db and locale in context
 			return next({
@@ -99,9 +62,6 @@ export function createRateLimitMiddleware(config: RateLimitConfig) {
 			}
 			const logger = createLogger(env);
 			logger.error("Rate limit middleware error", error as Error);
-			// Auto-detect locale from request headers even on error
-			const request = context.cloudflare?.request;
-			const locale = getLocaleFromRequest(request);
 
 			// On error, allow the request to proceed
 			return next({
@@ -152,41 +112,35 @@ function getClientIdentifier(context: {
 
 // Pre-configured rate limiters for common use cases
 export const authRateLimit = createRateLimitMiddleware({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	maxRequests: 5, // 5 requests per 15 minutes
 	keyPrefix: "auth",
+	binding: "AUTH_RATE_LIMITER",
 });
 
 // Stricter rate limit for registration to prevent spam
 export const registerRateLimit = createRateLimitMiddleware({
-	windowMs: 60 * 60 * 1000, // 1 hour
-	maxRequests: 3, // 3 registration attempts per hour
 	keyPrefix: "auth:register",
+	binding: "REGISTER_RATE_LIMITER",
 });
 
 // Rate limit for password reset to prevent abuse
 export const passwordResetRateLimit = createRateLimitMiddleware({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	maxRequests: 3, // 3 reset attempts per 15 minutes
 	keyPrefix: "auth:reset",
+	binding: "PASSWORD_RESET_RATE_LIMITER",
 });
 
 export const apiRateLimit = createRateLimitMiddleware({
-	windowMs: 60 * 1000, // 1 minute
-	maxRequests: 60, // 60 requests per minute
 	keyPrefix: "api",
+	binding: "API_RATE_LIMITER",
 });
 
 // Rate limit for avatar upload to prevent abuse
 export const avatarUploadRateLimit = createRateLimitMiddleware({
-	windowMs: 60 * 60 * 1000, // 1 hour
-	maxRequests: 10, // 10 avatar uploads per hour per user
 	keyPrefix: "avatar:upload",
+	binding: "AVATAR_UPLOAD_RATE_LIMITER",
 });
 
 // Rate limit for reports to prevent abuse (especially for anonymous reports)
 export const reportRateLimit = createRateLimitMiddleware({
-	windowMs: 60 * 60 * 1000, // 1 hour
-	maxRequests: 10, // 10 reports per hour (both authenticated and anonymous)
 	keyPrefix: "report",
+	binding: "REPORT_RATE_LIMITER",
 });

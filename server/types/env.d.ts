@@ -8,6 +8,14 @@ export type CloudflareEnv = ExtendedEnv;
 
 // Extend the Cloudflare Env with optional runtime additions
 export interface ExtendedEnv extends Env {
+	// Cloudflare Rate Limiting bindings
+	AUTH_RATE_LIMITER?: RateLimit;
+	REGISTER_RATE_LIMITER?: RateLimit;
+	PASSWORD_RESET_RATE_LIMITER?: RateLimit;
+	API_RATE_LIMITER?: RateLimit;
+	AVATAR_UPLOAD_RATE_LIMITER?: RateLimit;
+	REPORT_RATE_LIMITER?: RateLimit;
+
 	// KV Cache (if needed for your application)
 	KV_CACHE?: KVNamespace;
 

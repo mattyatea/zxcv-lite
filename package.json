@@ -49,6 +49,7 @@
 		"@nuxtjs/tailwindcss": "^6.14.0",
 		"@orpc/client": "^1.13.4",
 		"@orpc/contract": "^1.13.4",
+		"@orpc/experimental-ratelimit": "^1.13.4",
 		"@orpc/openapi": "^1.13.4",
 		"@orpc/openapi-client": "^1.13.4",
 		"@orpc/server": "^1.13.4",

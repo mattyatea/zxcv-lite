@@ -22,10 +22,36 @@ bucket_name = "zxcv"
 # Secrets (JWT_SECRET, GOOGLE_CLIENT_ID, etc.) are set via wrangler secret during deployment
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRES_IN = "7d"
-RATE_LIMIT_ANONYMOUS = "100"
-RATE_LIMIT_AUTHENTICATED = "1000"
-RATE_LIMIT_API_KEY = "5000"
-ENVIRONMENT = "production"
+
+[[ratelimits]]
+name = "AUTH_RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "REGISTER_RATE_LIMITER"
+namespace_id = "1002"
+simple = { limit = 3, period = 60 }
+
+[[ratelimits]]
+name = "PASSWORD_RESET_RATE_LIMITER"
+namespace_id = "1003"
+simple = { limit = 3, period = 60 }
+
+[[ratelimits]]
+name = "API_RATE_LIMITER"
+namespace_id = "1004"
+simple = { limit = 60, period = 60 }
+
+[[ratelimits]]
+name = "AVATAR_UPLOAD_RATE_LIMITER"
+namespace_id = "1005"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "REPORT_RATE_LIMITER"
+namespace_id = "1006"
+simple = { limit = 10, period = 60 }
 
 [placement]
 mode = "smart"
@@ -34,31 +60,3 @@ mode = "smart"
 [assets]
 binding = "ASSETS"
 directory = ".output/public"
-
-# Staging environment configuration
-[env.staging]
-name = "zxcv-backend-and-frontend-staging"
-
-[[env.staging.d1_databases]]
-binding = "DB"
-database_name = "zxcv-staging"
-database_id = "e3bce64a-4462-4812-a343-c04c3ba7032a"
-
-[[env.staging.r2_buckets]]
-binding = "R2"
-bucket_name = "zxcv-staging"
-
-[env.staging.vars]
-# Staging environment configuration (vars are NOT inherited, must be redefined)
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRES_IN = "7d"
-RATE_LIMIT_ANONYMOUS = "100"
-RATE_LIMIT_AUTHENTICATED = "1000"
-RATE_LIMIT_API_KEY = "5000"
-ENVIRONMENT = "staging"
-
-# Workers Assets configuration for staging
-[env.staging.assets]
-binding = "ASSETS"
-directory = ".output/public"
-
