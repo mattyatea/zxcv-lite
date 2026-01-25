@@ -4,6 +4,9 @@
   "type": "module",
   "description": "OpenCode plugin for Zxcv AI Coding Rules platform",
   "main": "dist/opencode-plugin/src/index.js",
+  "bin": {
+    "opencode-rules-plugin": "dist/cli.js"
+  },
   "files": [
     "dist/**/*",
     "README.md"
