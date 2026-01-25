@@ -86,8 +86,26 @@ describe("rules API output", () => {
 
 	it("maps list input for list", async () => {
 		listRulesMock.mockResolvedValue({
-			rules: [{ id: "rule_1" }],
+			rules: [
+				{
+					id: "rule_1",
+					name: "first-rule",
+					description: "First rule",
+					author: {
+						id: "user_123",
+						username: "demo",
+						displayName: "Demo",
+						avatarUrl: null,
+					},
+					visibility: "public",
+					tags: ["tag"],
+					version: "1.0.0",
+					updated_at: 1700000100,
+				},
+			],
 			total: 1,
+			limit: 10,
+			offset: 0,
 		});
 
 		const result = await call(
@@ -104,11 +122,37 @@ describe("rules API output", () => {
 			offset: 0,
 			userId: "user_123",
 		});
-		expect(result).toEqual({ rules: [{ id: "rule_1" }], total: 1 });
+		expect(result).toEqual({
+			rules: [
+				{
+					id: "rule_1",
+					name: "first-rule",
+					description: "First rule",
+					author: {
+						id: "user_123",
+						username: "demo",
+						displayName: "Demo",
+						avatarUrl: null,
+					},
+					visibility: "public",
+					tags: ["tag"],
+					version: "1.0.0",
+					updated_at: 1700000100,
+				},
+			],
+			total: 1,
+			limit: 10,
+			offset: 0,
+		});
 	});
 
 	it("maps search input for search", async () => {
-		searchRulesMock.mockResolvedValue({ rules: [], total: 0 });
+		searchRulesMock.mockResolvedValue({
+			rules: [],
+			total: 0,
+			page: 1,
+			limit: 20,
+		});
 
 		const result = await call(
 			rulesProcedures.search,
@@ -136,7 +180,7 @@ describe("rules API output", () => {
 			limit: 20,
 			userId: "user_123",
 		});
-		expect(result).toEqual({ rules: [], total: 0 });
+		expect(result).toEqual({ rules: [], total: 0, page: 1, limit: 20 });
 	});
 
 	it("requires auth for like", async () => {
