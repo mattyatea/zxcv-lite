@@ -82,6 +82,7 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const success = ref(false);
 const isRegistering = ref(false);
+const hasStarted = ref(false);
 
 // Methods
 const processOAuthCallback = async () => {
@@ -190,10 +191,28 @@ const retry = () => {
 	navigateTo(`/auth?provider=${provider.value}`);
 };
 
-// Lifecycle
-onMounted(() => {
-	processOAuthCallback();
-});
+const startOAuthCallback = async () => {
+	if (hasStarted.value) {
+		return;
+	}
+
+	const { code, state, error: oauthError } = route.query;
+	const hasRequiredParams = typeof code === "string" && typeof state === "string";
+	if (!hasRequiredParams && !oauthError) {
+		return;
+	}
+
+	hasStarted.value = true;
+	await processOAuthCallback();
+};
+
+watch(
+	() => route.query,
+	() => {
+		startOAuthCallback();
+	},
+	{ immediate: true },
+);
 
 // SEO
 useHead({
