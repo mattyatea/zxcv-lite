@@ -1,6 +1,6 @@
 {
   "name": "opencode-rules-plugin",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "type": "module",
   "description": "OpenCode plugin for Zxcv AI Coding Rules platform",
   "main": "dist/index.js",
