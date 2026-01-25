@@ -16,7 +16,6 @@ import {
 import { UserPackingService } from "../../services/packing/UserPackingService";
 import type { AuthUser } from "../../services/AuthContextService";
 import type { CloudflareEnv } from "../../types/env";
-import { createLogger } from "../../services/LoggerService";
 import { generateId } from "../../utils/cryptoHash";
 import { authErrors } from "../../utils/i18nTranslate";
 import type { Locale } from "../../utils/i18nLocale";
@@ -109,17 +108,24 @@ export const authProcedures = {
 	/**
 	 * OAuth初期化
 	 */
-	oauthInitialize: os.auth.oauthInitialize
-		.use(authRateLimit)
-		.handler(async ({ input, context }) => {
-			const { provider, redirectUrl, action } = input as {
-				provider: "github";
-				redirectUrl?: string;
-				action: "login" | "register";
-			};
-			const { db, env, cloudflare } = context;
-			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-			ensureGitHubOAuthConfigured(env, locale);
+		oauthInitialize: os.auth.oauthInitialize
+			.use(authRateLimit)
+			.handler(async ({ input, context }) => {
+				const { provider, redirectUrl, action } = input as {
+					provider: "github";
+					redirectUrl?: string;
+					action: "login" | "register";
+				};
+				const { db, env, cloudflare } = context;
+				const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+				if (context.logContext) {
+					context.logContext.oauth = {
+						provider,
+						action,
+						redirectUrl: redirectUrl || "/",
+					};
+				}
+				ensureGitHubOAuthConfigured(env, locale);
 
 			const providers = createOAuthProviders(env, cloudflare?.request);
 
@@ -130,12 +136,19 @@ export const authProcedures = {
 
 			await performOAuthSecurityChecks(db, clientIp, locale);
 
-			const stateData = {
-				random: generateState(),
-				action,
-				nonce: generateNonce(),
-			};
-			const state = Buffer.from(JSON.stringify(stateData)).toString("base64url");
+				const stateData = {
+					random: generateState(),
+					action,
+					nonce: generateNonce(),
+				};
+				const state = Buffer.from(JSON.stringify(stateData)).toString("base64url");
+
+				if (context.logContext?.oauth && typeof context.logContext.oauth === "object") {
+					context.logContext.oauth = {
+						...context.logContext.oauth,
+						stateId: stateData.random,
+					};
+				}
 
 			await cleanupExpiredOAuthStates(db);
 
@@ -160,17 +173,23 @@ export const authProcedures = {
 	/**
 	 * OAuth Device Flow 初期化
 	 */
-	oauthDeviceInitialize: os.auth.oauthDeviceInitialize
-		.use(authRateLimit)
-		.handler(async ({ input, context }) => {
-			const { provider, scopes } = input as {
-				provider: "github";
-				scopes: string[];
-			};
-			const { db, env, cloudflare } = context;
-			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-			const logger = createLogger(env);
-			ensureGitHubOAuthConfigured(env, locale);
+		oauthDeviceInitialize: os.auth.oauthDeviceInitialize
+			.use(authRateLimit)
+			.handler(async ({ input, context }) => {
+				const { provider, scopes } = input as {
+					provider: "github";
+					scopes: string[];
+				};
+				const { db, env, cloudflare } = context;
+				const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
+				ensureGitHubOAuthConfigured(env, locale);
+				if (context.logContext) {
+					context.logContext.oauth = {
+						flow: "device_initialize",
+						provider,
+						scopesCount: scopes.length,
+					};
+				}
 
 			// Import device OAuth providers
 			const providers = createDeviceOAuthProviders(env);
@@ -200,10 +219,19 @@ export const authProcedures = {
 				});
 
 				if (!deviceAuthResponse.ok) {
-					logger.error("Device authorization failed", undefined, {
-						status: deviceAuthResponse.status,
-						text: await deviceAuthResponse.text(),
-					});
+					if (context.logContext) {
+						const oauthContext =
+							context.logContext.oauth && typeof context.logContext.oauth === "object"
+								? (context.logContext.oauth as Record<string, unknown>)
+								: {};
+						context.logContext.oauth = {
+							...oauthContext,
+							error: {
+								step: "device_authorization",
+								status: deviceAuthResponse.status,
+							},
+						};
+					}
 					throw new ORPCError("INTERNAL_SERVER_ERROR", {
 						message: "Failed to initiate device authorization",
 					});
@@ -235,11 +263,6 @@ export const authProcedures = {
 					},
 				});
 
-				logger.info("Device code created", {
-					userCode: deviceData.user_code,
-					expiresIn: deviceData.expires_in,
-				});
-
 				return {
 					device_code: deviceData.device_code,
 					user_code: deviceData.user_code,
@@ -248,7 +271,19 @@ export const authProcedures = {
 					interval: deviceData.interval || 5,
 				};
 			} catch (error) {
-				logger.error("Device initialization error", error as Error);
+				if (context.logContext) {
+					const oauthContext =
+						context.logContext.oauth && typeof context.logContext.oauth === "object"
+							? (context.logContext.oauth as Record<string, unknown>)
+							: {};
+					context.logContext.oauth = {
+						...oauthContext,
+						error: {
+							step: "device_initialize",
+							reason: error instanceof Error ? error.name : "unknown",
+						},
+					};
+				}
 				if (error instanceof ORPCError) {
 					throw error;
 				}
@@ -266,12 +301,13 @@ export const authProcedures = {
 			const { db, env, cloudflare } = context;
 			const authService = new AuthService(db, env);
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-			const logger = createLogger(env);
 			ensureGitHubOAuthConfigured(env, locale);
-
-			logger.debug("Device callback started", {
-				deviceCode: `${deviceCode?.substring(0, 10)}...`,
-			});
+			if (context.logContext) {
+				context.logContext.oauth = {
+					flow: "device_callback",
+					deviceCodePrefix: deviceCode?.substring(0, 10),
+				};
+			}
 
 			// Get client IP for security tracking
 			const clientIp =
@@ -285,15 +321,38 @@ export const authProcedures = {
 			});
 
 			if (!deviceRecord) {
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						error: {
+							step: "device_code_lookup",
+						},
+					};
+				}
 				throw new ORPCError("BAD_REQUEST", {
 					message: "Invalid device code",
 				});
+			}
+
+			if (context.logContext) {
+				context.logContext.oauth = {
+					...(context.logContext.oauth as Record<string, unknown>),
+					provider: deviceRecord.provider,
+				};
 			}
 
 			// Check if expired
 			if (deviceRecord.expiresAt < Math.floor(Date.now() / 1000)) {
 				// Clean up expired device code
 				await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						error: {
+							step: "device_code_expired",
+						},
+					};
+				}
 				throw new ORPCError("BAD_REQUEST", {
 					message: "Device code has expired",
 				});
@@ -301,6 +360,15 @@ export const authProcedures = {
 
 			// Rate limiting check
 			if (deviceRecord.attemptCount >= 50) {
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						error: {
+							step: "poll_rate_limit",
+							reason: "attempt_limit",
+						},
+					};
+				}
 				throw new ORPCError("TOO_MANY_REQUESTS", {
 					message: "Too many polling attempts. Please restart the authentication process.",
 				});
@@ -320,6 +388,15 @@ export const authProcedures = {
 			if (deviceRecord.lastPollAt) {
 				const timeSinceLastPoll = Math.floor(Date.now() / 1000) - deviceRecord.lastPollAt;
 				if (timeSinceLastPoll < minInterval) {
+					if (context.logContext) {
+						context.logContext.oauth = {
+							...(context.logContext.oauth as Record<string, unknown>),
+							error: {
+								step: "poll_rate_limit",
+								reason: "poll_too_fast",
+							},
+						};
+					}
 					throw new ORPCError("TOO_MANY_REQUESTS", {
 						message: "Please slow down polling requests",
 					});
@@ -346,47 +423,80 @@ export const authProcedures = {
 				});
 
 				if (!tokenResponse.ok) {
-					const errorData = tokenResponse.status === 400 
-						? await tokenResponse.json() as any
-						: null;
+					const errorData =
+						tokenResponse.status === 400 ? ((await tokenResponse.json()) as any) : null;
 
 					if (errorData?.error) {
 						// Handle OAuth device flow errors
 						switch (errorData.error) {
 							case "authorization_pending":
+								if (context.logContext) {
+									context.logContext.oauth = {
+										...(context.logContext.oauth as Record<string, unknown>),
+										deviceStatus: "authorization_pending",
+									};
+								}
 								return {
 									error: "authorization_pending",
 									error_description: "Authorization pending - please complete authentication in your browser",
 								};
 							case "slow_down":
+								if (context.logContext) {
+									context.logContext.oauth = {
+										...(context.logContext.oauth as Record<string, unknown>),
+										deviceStatus: "slow_down",
+									};
+								}
 								return {
 									error: "slow_down",
 									error_description: "Please slow down polling - authentication still pending",
 								};
 							case "access_denied":
 								await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+								if (context.logContext) {
+									context.logContext.oauth = {
+										...(context.logContext.oauth as Record<string, unknown>),
+										deviceStatus: "access_denied",
+									};
+								}
 								return {
 									error: "access_denied",
 									error_description: "Access denied - user declined the authorization request",
 								};
 							case "expired_token":
 								await db.oAuthDeviceCode.delete({ where: { id: deviceRecord.id } });
+								if (context.logContext) {
+									context.logContext.oauth = {
+										...(context.logContext.oauth as Record<string, unknown>),
+										deviceStatus: "expired_token",
+									};
+								}
 								return {
 									error: "expired_token",
 									error_description: "Device code has expired - please start a new authentication",
 								};
 							default:
+								if (context.logContext) {
+									context.logContext.oauth = {
+										...(context.logContext.oauth as Record<string, unknown>),
+										deviceStatus: errorData.error,
+									};
+								}
 								return {
 									error: errorData.error,
 									error_description: errorData.error_description || "Unknown error occurred",
 								};
 						}
 					}
-
-					logger.error("Token request failed", undefined, {
-						status: tokenResponse.status,
-						text: await tokenResponse.text(),
-					});
+					if (context.logContext) {
+						context.logContext.oauth = {
+							...(context.logContext.oauth as Record<string, unknown>),
+							error: {
+								step: "token_request",
+								status: tokenResponse.status,
+							},
+						};
+					}
 					throw new ORPCError("INTERNAL_SERVER_ERROR", {
 						message: "Failed to obtain access token",
 					});
@@ -415,12 +525,16 @@ export const authProcedures = {
 				]);
 
 				if (!userResponse.ok || !emailResponse.ok) {
-					logger.error("GitHub API error", undefined, {
-						userStatus: userResponse.status,
-						userText: await userResponse.text(),
-						emailStatus: emailResponse.status,
-						emailText: await emailResponse.text(),
-					});
+					if (context.logContext) {
+						context.logContext.oauth = {
+							...(context.logContext.oauth as Record<string, unknown>),
+							error: {
+								step: "github_user_fetch",
+								userStatus: userResponse.status,
+								emailStatus: emailResponse.status,
+							},
+						};
+					}
 					throw new ORPCError("INTERNAL_SERVER_ERROR", {
 						message: "GitHub authentication failed",
 					});
@@ -465,17 +579,21 @@ export const authProcedures = {
 					};
 				}
 
-				logger.info("Device authentication successful", { 
-					userId: (result as any)?.user?.id || 'unknown' 
-				});
-
 				return {
 					accessToken: (result as any).accessToken,
 					refreshToken: (result as any).refreshToken,
 					user: (result as any).user,
 				};
 			} catch (error) {
-				logger.error("Device callback error", error as Error);
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						error: {
+							step: "device_callback",
+							reason: error instanceof Error ? error.name : "unknown",
+						},
+					};
+				}
 				if (error instanceof ORPCError) {
 					throw error;
 				}
@@ -498,13 +616,12 @@ export const authProcedures = {
 		const authService = new AuthService(db, env);
 		const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
 		ensureGitHubOAuthConfigured(env, locale);
-
-		const logger = createLogger(env);
-		logger.debug("OAuth callback started", {
-			provider,
-			code: `${code?.substring(0, 10)}...`,
-			state,
-		});
+		if (context.logContext) {
+			context.logContext.oauth = {
+				flow: "callback",
+				provider,
+			};
+		}
 
 		const providers = createOAuthProviders(env, cloudflare?.request);
 
@@ -516,10 +633,24 @@ export const authProcedures = {
 		try {
 			stateData = JSON.parse(Buffer.from(state, "base64url").toString());
 		} catch (e) {
-			logger.error("Failed to decode state", e as Error);
+			if (context.logContext) {
+				context.logContext.oauth = {
+					...(context.logContext.oauth as Record<string, unknown>),
+					error: {
+						step: "state_decode",
+					},
+				};
+			}
 			throw new ORPCError("BAD_REQUEST", {
 				message: "無効または期限切れの状態です",
 			});
+		}
+		if (context.logContext) {
+			context.logContext.oauth = {
+				...(context.logContext.oauth as Record<string, unknown>),
+				action: stateData.action,
+				stateId: stateData.random,
+			};
 		}
 
 		// Verify state
@@ -527,19 +658,20 @@ export const authProcedures = {
 			where: { state: stateData.random },
 		});
 
-		logger.debug("State record found", { stateRecord });
-		logger.debug("Action from state", { action: stateData.action });
-
 		if (
 			!stateRecord ||
 			stateRecord.provider !== provider ||
 			stateRecord.expiresAt < Math.floor(Date.now() / 1000)
 		) {
-			logger.error("State validation failed", undefined, {
-				stateRecord,
-				provider,
-				currentTime: Math.floor(Date.now() / 1000),
-			});
+			if (context.logContext) {
+				context.logContext.oauth = {
+					...(context.logContext.oauth as Record<string, unknown>),
+					error: {
+						step: "state_validation",
+						provider,
+					},
+				};
+			}
 			throw new ORPCError("BAD_REQUEST", {
 				message: "無効または期限切れの状態です",
 			});
@@ -553,10 +685,12 @@ export const authProcedures = {
 				"unknown";
 
 			if (stateRecord.clientIp !== currentClientIp) {
-				logger.warn("OAuth callback IP mismatch", {
-					stored: stateRecord.clientIp,
-					current: currentClientIp,
-				});
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						ipMismatch: true,
+					};
+				}
 				// For now, just log the mismatch but don't block the request
 				// In a high-security environment, you might want to throw an error here
 			}
@@ -569,9 +703,7 @@ export const authProcedures = {
 			let tokens: { accessToken: () => string };
 			let userInfo: { id: string; email: string; username?: string };
 
-			logger.debug("Validating GitHub authorization code");
 			tokens = await providers.github.validateAuthorizationCode(code);
-			logger.debug("GitHub token obtained");
 
 			// Fetch user info from GitHub
 			const [userResponse, emailResponse] = await Promise.all([
@@ -589,18 +721,17 @@ export const authProcedures = {
 				}),
 			]);
 
-			logger.debug("GitHub API responses", {
-				userStatus: userResponse.status,
-				emailStatus: emailResponse.status,
-			});
-
 			if (!userResponse.ok || !emailResponse.ok) {
-				logger.error("GitHub API error", undefined, {
-					userStatus: userResponse.status,
-					userText: await userResponse.text(),
-					emailStatus: emailResponse.status,
-					emailText: await emailResponse.text(),
-				});
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						error: {
+							step: "github_user_fetch",
+							userStatus: userResponse.status,
+							emailStatus: emailResponse.status,
+						},
+					};
+				}
 				throw new ORPCError("INTERNAL_SERVER_ERROR", {
 					message: "GitHub認証に失敗しました",
 				});
@@ -635,6 +766,12 @@ export const authProcedures = {
 
 			// Check if username is required
 			if ("requiresUsername" in result && result.requiresUsername) {
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						result: "requires_username",
+					};
+				}
 				return {
 					tempToken: result.tempToken,
 					provider: result.provider,
@@ -667,19 +804,20 @@ export const authProcedures = {
 				redirectUrl: stateRecord.redirectUrl || "/",
 			};
 		} catch (error) {
-			logger.error("OAuth callback error", error as Error);
+			if (context.logContext) {
+				context.logContext.oauth = {
+					...(context.logContext.oauth as Record<string, unknown>),
+					error: {
+						step: "oauth_callback",
+						reason: error instanceof Error ? error.name : "unknown",
+					},
+				};
+			}
 			if (error instanceof ORPCError) {
 				throw error;
 			}
 
-			// Provide more detailed error information for debugging
 			const errorMessage = error instanceof Error ? error.message : "Unknown error";
-			logger.error("Detailed error", undefined, {
-				message: errorMessage,
-				stack: error instanceof Error ? error.stack : undefined,
-				error: error,
-			});
-
 			throw new ORPCError("INTERNAL_SERVER_ERROR", {
 				message: `OAuth認証に失敗しました: ${errorMessage}`,
 			});
@@ -706,8 +844,12 @@ export const authProcedures = {
 			const { tempToken, username } = input as { tempToken: string; username: string };
 			const { db, env, cloudflare } = context;
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-			const logger = createLogger(env);
 			const userPackingService = new UserPackingService();
+			if (context.logContext) {
+				context.logContext.oauth = {
+					flow: "complete_registration",
+				};
+			}
 
 			try {
 				// Get temp registration
@@ -716,9 +858,24 @@ export const authProcedures = {
 				});
 
 				if (!tempReg) {
+					if (context.logContext) {
+						context.logContext.oauth = {
+							...(context.logContext.oauth as Record<string, unknown>),
+							error: {
+								step: "temp_registration_lookup",
+							},
+						};
+					}
 					throw new ORPCError("BAD_REQUEST", {
 						message: authErrors.invalidToken(locale),
 					});
+				}
+
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						provider: tempReg.provider,
+					};
 				}
 
 				// Check if expired
@@ -727,6 +884,14 @@ export const authProcedures = {
 					await db.oAuthTempRegistration.delete({
 						where: { id: tempReg.id },
 					});
+					if (context.logContext) {
+						context.logContext.oauth = {
+							...(context.logContext.oauth as Record<string, unknown>),
+							error: {
+								step: "temp_registration_expired",
+							},
+						};
+					}
 					throw new ORPCError("BAD_REQUEST", {
 						message: authErrors.tokenExpired(locale),
 					});
@@ -738,6 +903,14 @@ export const authProcedures = {
 				});
 
 				if (existingUser) {
+					if (context.logContext) {
+						context.logContext.oauth = {
+							...(context.logContext.oauth as Record<string, unknown>),
+							error: {
+								step: "username_conflict",
+							},
+						};
+					}
 					throw new ORPCError("CONFLICT", {
 						message: "このユーザー名は既に使用されています",
 					});
@@ -780,15 +953,21 @@ export const authProcedures = {
 				const authService = new AuthService(db, context.env);
 				const tokens = await authService.generateTokens(user);
 
-				logger.info("OAuth registration completed", { userId: user.id });
-
 				return {
 					accessToken: tokens.accessToken,
 					refreshToken: tokens.refreshToken,
 					user: userPackingService.packAuthUser(user),
 				};
 			} catch (error) {
-				logger.error("Complete OAuth registration error", error as Error);
+				if (context.logContext) {
+					context.logContext.oauth = {
+						...(context.logContext.oauth as Record<string, unknown>),
+						error: {
+							step: "complete_registration",
+							reason: error instanceof Error ? error.name : "unknown",
+						},
+					};
+				}
 				if (error instanceof ORPCError) {
 					throw error;
 				}

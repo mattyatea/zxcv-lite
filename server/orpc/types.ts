@@ -12,4 +12,5 @@ export interface Context {
 	};
 	db?: PrismaClient;
 	locale: string;
+	logContext?: Record<string, unknown>;
 }

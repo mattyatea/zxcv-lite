@@ -6,6 +6,7 @@ import type { H3EventContext } from "../types/bindings";
 import type { Env } from "../types/env";
 import type { AuthUser } from "./AuthContextService";
 import { verifyJWT } from "./AuthTokenService";
+import { createLogger } from "./LoggerService";
 
 // Extend globalThis for test environment
 declare global {
@@ -48,6 +49,97 @@ export async function getAuthUser(event: H3Event): Promise<AuthUser | undefined>
 	} catch {
 		return undefined;
 	}
+}
+
+function normalizeHeaderValue(value: string | string[] | undefined): string | undefined {
+	if (Array.isArray(value)) {
+		return value[0];
+	}
+
+	return value;
+}
+
+export function createEventLogger(event: H3Event) {
+	const context = event.context as BaseH3EventContext & Partial<H3EventContext>;
+	const logger = createLogger(context.cloudflare?.env);
+	const headers = event.node.req.headers;
+	const requestIdHeader = normalizeHeaderValue(headers["x-request-id"]);
+	const userAgent = normalizeHeaderValue(headers["user-agent"]);
+	const cfConnectingIp = normalizeHeaderValue(headers["cf-connecting-ip"]);
+	const xForwardedFor = normalizeHeaderValue(headers["x-forwarded-for"]);
+	const requestId =
+		requestIdHeader ??
+		(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined);
+
+	return logger.child({
+		requestId,
+		method: event.node.req.method,
+		url: event.node.req.url,
+		userAgent,
+		ip: cfConnectingIp ?? xForwardedFor,
+	});
+}
+
+const ORPC_STATUS_MAP: Record<string, number> = {
+	UNAUTHORIZED: 401,
+	FORBIDDEN: 403,
+	NOT_FOUND: 404,
+	BAD_REQUEST: 400,
+	CONFLICT: 409,
+	INTERNAL_SERVER_ERROR: 500,
+};
+
+export function describeErrorForLog(error: unknown): {
+	status: number;
+	error?: Record<string, unknown>;
+} {
+	if (
+		error instanceof ORPCError ||
+		(error && typeof error === "object" && "code" in error && "__isORPCError" in error)
+	) {
+		const orpcError = error as ORPCError<ORPCErrorCode, unknown>;
+		return {
+			status: ORPC_STATUS_MAP[orpcError.code] || 500,
+			error: {
+				type: "orpc",
+				code: orpcError.code,
+				message: orpcError.message,
+			},
+		};
+	}
+
+	if (
+		error &&
+		typeof error === "object" &&
+		"response" in error &&
+		(error as { response?: unknown }).response instanceof Response
+	) {
+		const errorResponse = (error as { response: Response }).response;
+		return {
+			status: errorResponse.status,
+			error: {
+				type: "response",
+				status: errorResponse.status,
+			},
+		};
+	}
+
+	if (error instanceof Error) {
+		return {
+			status: 500,
+			error: {
+				type: error.name,
+				message: error.message,
+			},
+		};
+	}
+
+	return {
+		status: 500,
+		error: {
+			type: "unknown",
+		},
+	};
 }
 
 export function ensureCloudflareContext(event: H3Event): void {
@@ -133,11 +225,6 @@ export async function sendResponse(event: H3Event, response: Response): Promise<
 
 // biome-ignore lint/suspicious/noExplicitAny: Error response format varies and needs to be flexible
 export async function handleError(event: H3Event, error: unknown): Promise<any> {
-	// エラー時のみ簡潔にログ出力
-	if (error instanceof Error) {
-		console.error("[Handler Error]", error.message);
-	}
-
 	// Check if the error has already been processed by Handler
 	if (
 		error &&
@@ -156,18 +243,7 @@ export async function handleError(event: H3Event, error: unknown): Promise<any> 
 		(error && typeof error === "object" && "code" in error && "__isORPCError" in error)
 	) {
 		const orpcError = error as ORPCError<ORPCErrorCode, unknown>;
-		// ORPCErrorログは上で出力済み
-
-		const statusMap: Record<string, number> = {
-			UNAUTHORIZED: 401,
-			FORBIDDEN: 403,
-			NOT_FOUND: 404,
-			BAD_REQUEST: 400,
-			CONFLICT: 409,
-			INTERNAL_SERVER_ERROR: 500,
-		};
-
-		const status = statusMap[orpcError.code] || 500;
+		const status = ORPC_STATUS_MAP[orpcError.code] || 500;
 		setResponseStatus(event, status);
 
 		return {
@@ -180,7 +256,6 @@ export async function handleError(event: H3Event, error: unknown): Promise<any> 
 	}
 
 	// For other errors, return 500
-	// 500エラーのログは削除
 	setResponseStatus(event, 500);
 	return {
 		defined: false,

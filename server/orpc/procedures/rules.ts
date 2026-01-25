@@ -1,6 +1,5 @@
 import { ORPCError } from "@orpc/server";
 import { RuleService } from "../../services";
-import { createLogger } from "../../services/LoggerService";
 import { parseRulePath } from "../../utils/rulesNamespace";
 import { os } from "../index";
 import { authRequiredMiddleware } from "../middleware/auth";
@@ -84,8 +83,15 @@ export const rulesProcedures = {
 				tags: string[];
 			};
 
-			const logger = createLogger(env);
-			logger.debug("Create rule handler - user", { user });
+			if (context.logContext) {
+				context.logContext.rule = {
+					operation: "create",
+					name: inputData.name,
+					type: inputData.type ?? "rule",
+					visibility: inputData.visibility,
+					tagsCount: inputData.tags?.length ?? 0,
+				};
+			}
 			const result = await ruleService.createRule(user.id, inputData);
 			return { id: result.rule.id };
 		}),
@@ -111,6 +117,16 @@ export const rulesProcedures = {
 			};
 
 			const { id, ...updateData } = inputData;
+			if (context.logContext) {
+				const changedFields = Object.entries(updateData)
+					.filter(([, value]) => value !== undefined)
+					.map(([key]) => key);
+				context.logContext.rule = {
+					operation: "update",
+					ruleId: id,
+					changedFields,
+				};
+			}
 			await ruleService.updateRule(id, user.id, updateData);
 			return { success: true, message: "Rule updated successfully" };
 		}),
@@ -181,6 +197,12 @@ export const rulesProcedures = {
 			const { db, user, env } = context;
 			const ruleService = new RuleService(db, env.R2, env);
 			const inputData = input as { ruleId: string };
+			if (context.logContext) {
+				context.logContext.rule = {
+					operation: "like",
+					ruleId: inputData.ruleId,
+				};
+			}
 
 			return await ruleService.starRule(inputData.ruleId, user.id);
 		}),
@@ -195,6 +217,12 @@ export const rulesProcedures = {
 			const { db, user, env } = context;
 			const ruleService = new RuleService(db, env.R2, env);
 			const inputData = input as { ruleId: string };
+			if (context.logContext) {
+				context.logContext.rule = {
+					operation: "unlike",
+					ruleId: inputData.ruleId,
+				};
+			}
 
 			return await ruleService.unstarRule(inputData.ruleId, user.id);
 		}),
@@ -340,6 +368,12 @@ export const rulesProcedures = {
 			const { db, user, env } = context;
 			const ruleService = new RuleService(db, env.R2, env);
 			const inputData = input as { id: string };
+			if (context.logContext) {
+				context.logContext.rule = {
+					operation: "delete",
+					ruleId: inputData.id,
+				};
+			}
 
 			const result = await ruleService.deleteRule(inputData.id, user.id);
 			return { success: true, message: result.message };
@@ -373,6 +407,12 @@ export const rulesProcedures = {
 			const { db, user, env } = context;
 			const ruleService = new RuleService(db, env.R2, env);
 			const inputData = input as { ruleId: string };
+			if (context.logContext) {
+				context.logContext.rule = {
+					operation: "star",
+					ruleId: inputData.ruleId,
+				};
+			}
 
 			return await ruleService.starRule(inputData.ruleId, user.id);
 		}),
@@ -387,6 +427,12 @@ export const rulesProcedures = {
 			const { db, user, env } = context;
 			const ruleService = new RuleService(db, env.R2, env);
 			const inputData = input as { ruleId: string };
+			if (context.logContext) {
+				context.logContext.rule = {
+					operation: "unstar",
+					ruleId: inputData.ruleId,
+				};
+			}
 
 			return await ruleService.unstarRule(inputData.ruleId, user.id);
 		}),

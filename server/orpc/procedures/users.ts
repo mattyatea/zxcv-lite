@@ -125,6 +125,15 @@ export const updateProfile = os.users.updateProfile
 		const { displayName, bio, location, website } = inputData;
 		const { db, user } = context;
 		const userPackingService = new UserPackingService();
+		if (context.logContext) {
+			const changedFields = Object.entries(inputData)
+				.filter(([, value]) => value !== undefined)
+				.map(([key]) => key);
+			context.logContext.user = {
+				operation: "update_profile",
+				changedFields,
+			};
+		}
 
 		// Validate website URL if provided
 		if (website && website !== "") {
@@ -159,6 +168,11 @@ export const changePassword = os.users.changePassword
 		const inputData = input as { currentPassword: string; newPassword: string };
 		const { currentPassword, newPassword } = inputData;
 		const { db, user, locale } = context;
+		if (context.logContext) {
+			context.logContext.user = {
+				operation: "change_password",
+			};
+		}
 
 		// Get user with password hash
 		const dbUser = await db.user.findUnique({
@@ -233,6 +247,12 @@ export const updateSettings = os.users.updateSettings
 		const inputData = input as { currentPassword?: string; newPassword?: string };
 		const { currentPassword, newPassword } = inputData;
 		const { db, user, locale } = context;
+		if (context.logContext) {
+			context.logContext.user = {
+				operation: "update_settings",
+				passwordChange: Boolean(newPassword),
+			};
+		}
 
 		// If changing password, verify current password
 		if (newPassword) {
@@ -323,6 +343,13 @@ export const uploadAvatar = os.users.uploadAvatar
 
 			// Generate unique filename
 			const avatarKey = `avatars/${user.id}/${nanoid()}.${ext}`;
+			if (context.logContext) {
+				context.logContext.user = {
+					operation: "upload_avatar",
+					fileExtension: ext,
+					imageBytes: imageData.length,
+				};
+			}
 
 			// Upload to R2
 			if (!env.R2) {
@@ -369,6 +396,11 @@ export const deleteAccount = os.users.deleteAccount
 		const inputData = input as { password: string; confirmation: string };
 		const { password, confirmation } = inputData;
 		const { db, user, locale } = context;
+		if (context.logContext) {
+			context.logContext.user = {
+				operation: "delete_account",
+			};
+		}
 
 		// Verify confirmation text
 		if (confirmation !== "DELETE") {
