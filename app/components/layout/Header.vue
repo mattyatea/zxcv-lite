@@ -201,9 +201,13 @@
                       @click="showUserMenu = false"
                       class="flex items-center px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     >
-                      <component :is="item.icon" class="w-4 h-4 mr-3 text-gray-600 dark:text-gray-400" />
-                      {{ item.name }}
-                    </NuxtLink>
+					<Icon
+						v-if="item.icon"
+						:name="item.icon"
+						class="w-4 h-4 mr-3 text-gray-600 dark:text-gray-400"
+					/>
+					{{ item.name }}
+				</NuxtLink>
                   </div>
                   
                   <div class="py-1">
@@ -224,20 +228,20 @@
 
           <!-- Login/Signup buttons -->
           <div v-else class="flex items-center space-x-2">
-            <NuxtLink to="/login">
-              <CommonButton
-                variant="ghost"
-                size="sm"
-              >
-                {{ t('nav.login') }}
-              </CommonButton>
-            </NuxtLink>
-            <NuxtLink to="/register">
-              <CommonButton
-                variant="primary"
-                size="sm"
-              >
-                {{ t('nav.register') }}
+			<NuxtLink to="/auth">
+				<CommonButton
+					variant="ghost"
+					size="sm"
+				>
+					{{ t('nav.login') }}
+				</CommonButton>
+			</NuxtLink>
+			<NuxtLink to="/auth?tab=register">
+				<CommonButton
+					variant="primary"
+					size="sm"
+				>
+					{{ t('nav.register') }}
               </CommonButton>
             </NuxtLink>
           </div>
@@ -328,7 +332,13 @@ const navigation = computed(() => {
 });
 
 const userMenuItems = computed(() => {
-	const items: Array<{ name: string; href: string; icon?: any }> = [];
+	const items: Array<{ name: string; href: string; icon?: string }> = [
+		{
+			name: t("nav.profile"),
+			href: "/profile",
+			icon: "heroicons:user-circle",
+		},
+	];
 
 	return items;
 });

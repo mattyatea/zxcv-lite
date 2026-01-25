@@ -62,6 +62,33 @@
 		"register": "Sign up",
 		"guides": "Guides"
 	},
+	"profile": {
+		"title": "Profile Review",
+		"subtitle": "Review your account details and public profile",
+		"error": "Failed to load your profile",
+		"errorHint": "Please try again in a moment.",
+		"sections": {
+			"details": "Profile Details",
+			"stats": "Usage Stats"
+		},
+		"labels": {
+			"viewPublic": "View public profile",
+			"emailVerified": "Email verified",
+			"emailUnverified": "Email not verified",
+			"createdAt": "Created",
+			"updatedAt": "Updated",
+			"bio": "Bio",
+			"location": "Location",
+			"website": "Website",
+			"rulesCount": "Rules",
+			"totalStars": "Total stars"
+		},
+		"empty": {
+			"bio": "No bio provided yet",
+			"location": "Not set",
+			"website": "Not set"
+		}
+	},
 	"auth": {
 		"oauth": {
 			"processing": "Processing authentication...",
