@@ -46,7 +46,12 @@ export default defineNuxtPlugin((_nuxtApp) => {
 						localStorage.removeItem("user");
 
 					const route = useRoute();
-					if (route.path !== "/auth" && route.path !== "/login" && route.path !== "/register") {
+					const isAuthPage =
+						route.path === "/auth" ||
+						route.path === "/login" ||
+						route.path === "/register" ||
+						route.path.startsWith("/auth/callback");
+					if (!isAuthPage) {
 						navigateTo("/auth");
 					}
 				}
