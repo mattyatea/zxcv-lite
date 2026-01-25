@@ -96,9 +96,6 @@ export class UserService {
 				bio: true,
 				website: true,
 				location: true,
-				company: true,
-				twitterUsername: true,
-				githubUsername: true,
 			},
 		});
 	}
