@@ -62,34 +62,6 @@
 		"register": "新規登録",
 		"guides": "ガイド"
 	},
-	"profile": {
-		"title": "プロフィール確認",
-		"subtitle": "登録情報と公開プロフィールを確認できます",
-		"error": "プロフィールの取得に失敗しました",
-		"errorHint": "時間をおいて再度お試しください。",
-		"sections": {
-			"details": "プロフィール詳細",
-			"stats": "利用状況"
-		},
-		"labels": {
-			"viewPublic": "公開プロフィールを見る",
-			"emailVerified": "メール認証済み",
-			"emailUnverified": "メール未認証",
-			"createdAt": "登録日",
-			"updatedAt": "更新日",
-			"bio": "自己紹介",
-			"location": "所在地",
-			"website": "Webサイト",
-			"rulesCount": "ルール数",
-			"totalStars": "総スター数"
-		},
-		"empty": {
-			"bio": "まだ自己紹介が設定されていません",
-			"location": "未設定",
-			"website": "未設定"
-		}
-	},
-
 	"home": {
 		"hero": {
 			"badge": "AIコーディングルール管理の新しいスタンダード",
@@ -301,12 +273,19 @@
 	},
 	"profile": {
 		"title": "プロフィール",
+		"subtitle": "登録情報と公開プロフィールを確認できます",
 		"editProfile": "プロフィールを編集",
 		"username": "ユーザー名",
 		"email": "メールアドレス",
 		"bio": "自己紹介",
 		"website": "ウェブサイト",
 		"joined": "登録日",
+		"error": "プロフィールの取得に失敗しました",
+		"errorHint": "時間をおいて再度お試しください。",
+		"sections": {
+			"details": "プロフィール詳細",
+			"stats": "利用状況"
+		},
 		"backToHome": "ホームに戻る",
 		"registeredDate": "登録日",
 		"publicRules": "公開ルール",
@@ -318,7 +297,21 @@
 		"emailVerified": "メール認証済み",
 		"emailNotVerified": "メール未認証",
 		"labels": {
-			"createdAt": "登録日"
+			"viewPublic": "公開プロフィールを見る",
+			"emailVerified": "メール認証済み",
+			"emailUnverified": "メール未認証",
+			"createdAt": "登録日",
+			"updatedAt": "更新日",
+			"bio": "自己紹介",
+			"location": "所在地",
+			"website": "Webサイト",
+			"rulesCount": "ルール数",
+			"totalStars": "総スター数"
+		},
+		"empty": {
+			"bio": "まだ自己紹介が設定されていません",
+			"location": "未設定",
+			"website": "未設定"
 		},
 		"createdRules": "作成したルール",
 		"registrationDate": "登録日",
