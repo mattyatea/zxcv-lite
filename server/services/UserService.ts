@@ -96,6 +96,8 @@ export class UserService {
 				bio: true,
 				website: true,
 				location: true,
+				createdAt: true,
+				updatedAt: true,
 			},
 		});
 	}
