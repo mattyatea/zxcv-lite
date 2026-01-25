@@ -171,167 +171,57 @@ function inferGlobsFromTagsAndName(tags: string[], ruleName: string): string[] {
   return []
 }
 
-async function webFlowLogin(provider: string) {
-  const result = await request<{ authorizationUrl: string }>(
-    "/auth/oauthInitialize",
-    {
-      method: "POST",
-      body: JSON.stringify({ provider, action: "login" })
-    }
-  )
-
-  return JSON.stringify({
-    message: "🌐 GitHub Web Flow Authentication",
-    authorizationUrl: result.authorizationUrl,
-    instructions: [
-      "1. Click the authorization URL above to open GitHub in your browser",
-      "2. Authorize the Zxcv application",
-      "3. After authorization, you'll be redirected to a page",
-      "4. Copy the full URL from your browser's address bar",
-      "5. Paste that URL here using the zxcv_oauth_callback tool",
-      "",
-      "💡 Tip: Look for a 'callback' URL that starts with https://zxcv-lite.nanasi-apps.xyz"
-    ].join("\n"),
-    flow: "web"
-  })
-}
-
-async function completeOAuthCallback(provider: string, authData: { code?: string; state?: string; deviceCode?: string }) {
-  try {
-    const result = await request<{ accessToken: string; refreshToken: string; user: User } | { tempToken: string; provider: string; requiresUsername: true }>(
-      authData.deviceCode ? "/auth/oauthDeviceCallback" : "/auth/oauthCallback",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          provider,
-          ...authData
-        })
-      }
-    )
-
-    if ("tempToken" in result) {
-      return JSON.stringify({
-        message: "Username required for new account",
-        tempToken: result.tempToken,
-        instructions: "Please use the zxcv_complete_registration tool with your desired username."
-      })
-    }
-
-    if ("accessToken" in result) {
-      accessToken = result.accessToken
-      refreshToken = result.refreshToken
-      await saveTokens()
-
-      return JSON.stringify({
-        message: "Successfully authenticated!",
-        user: result.user
-      })
-    }
-
-    return JSON.stringify(result)
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("authorization_pending")) {
-      return JSON.stringify({
-        status: "pending",
-        message: "Authorization pending - please complete authentication in your browser"
-      })
-    } else if (error instanceof Error && error.message.includes("slow_down")) {
-      return JSON.stringify({
-        status: "slow_down",
-        message: "Please slow down polling - authentication still pending"
-      })
-    } else if (error instanceof Error && error.message.includes("access_denied")) {
-      return JSON.stringify({
-        status: "denied",
-        message: "Access denied - user declined the authorization request"
-      })
-    } else if (error instanceof Error && error.message.includes("expired_token")) {
-      return JSON.stringify({
-        status: "expired",
-        message: "Device code has expired - please start a new login"
-      })
-    }
-    
-    throw error
-  }
-}
-
 const ZxcvPlugin: Plugin = async (ctx) => {
   await loadTokens()
 
   return {
     tool: {
       zxcv_login: tool({
-        description: "Login to zxcv platform using OAuth (GitHub) - supports both web flow and device flow",
+        description: "Login to zxcv platform using OAuth (GitHub) via device flow",
         args: {
-          provider: tool.schema.enum(["github"]).describe("OAuth provider to use"),
-          flow: tool.schema.enum(["web", "device"]).optional().describe("OAuth flow type: 'web' (opens browser) or 'device' (better for CLI) - defaults to 'device'")
+          provider: tool.schema.enum(["github"]).describe("OAuth provider to use")
         },
         async execute(args) {
           const provider = args.provider
-          const flow = args.flow || "device"
+          // GitHub Device Flow (required)
+          try {
+            const deviceResult = await request<{ 
+              device_code: string;
+              user_code: string;
+              verification_uri: string;
+              expires_in: number;
+              interval: number;
+            }>(
+              "/auth/oauthDeviceInitialize",
+              {
+                method: "POST",
+                body: JSON.stringify({ provider })
+              }
+            )
 
-          if (flow === "device") {
-            // GitHub Device Flow
-            try {
-              // First, try the backend's device flow endpoint
-              const deviceResult = await request<{ 
-                device_code: string;
-                user_code: string;
-                verification_uri: string;
-                expires_in: number;
-                interval: number;
-              }>(
-                "/auth/oauthDeviceInitialize",
-                {
-                  method: "POST",
-                  body: JSON.stringify({ provider })
-                }
-              )
-
-              return JSON.stringify({
-                message: "🚀 GitHub Device Flow Authentication",
-                instructions: [
-                  "📱 1. Open GitHub in your browser and go to:",
-                  `   ${deviceResult.verification_uri}`,
-                  "",
-                  "🔑 2. Enter this one-time code:",
-                  `   ${deviceResult.user_code}`,
-                  "",
-                  `⏰ 3. The code expires in ${deviceResult.expires_in} seconds (${Math.floor(deviceResult.expires_in / 60)} minutes)`,
-                  "",
-                  "🔄 4. After completing authentication, the system will automatically detect it and complete the login"
-                ].join("\n"),
-                userCode: deviceResult.user_code,
-                verificationUri: deviceResult.verification_uri,
-                deviceCode: deviceResult.device_code,
-                expiresIn: deviceResult.expires_in,
-                interval: deviceResult.interval,
-                flow: "device"
-              })
-            } catch (error) {
-              // If backend doesn't support device flow, provide enhanced web flow
-              return await webFlowLogin(provider)
-            }
-          } else {
-            return await webFlowLogin(provider)
+            return JSON.stringify({
+              message: "🚀 GitHub Device Flow Authentication",
+              instructions: [
+                "📱 1. Open GitHub in your browser and go to:",
+                `   ${deviceResult.verification_uri}`,
+                "",
+                "🔑 2. Enter this one-time code:",
+                `   ${deviceResult.user_code}`,
+                "",
+                `⏰ 3. The code expires in ${deviceResult.expires_in} seconds (${Math.floor(deviceResult.expires_in / 60)} minutes)`,
+                "",
+                "🔄 4. After completing authentication, the system will automatically detect it and complete the login"
+              ].join("\n"),
+              userCode: deviceResult.user_code,
+              verificationUri: deviceResult.verification_uri,
+              deviceCode: deviceResult.device_code,
+              expiresIn: deviceResult.expires_in,
+              interval: deviceResult.interval,
+              flow: "device"
+            })
+          } catch (error) {
+            throw new Error("Device flow initialization failed. This plugin requires device flow; ensure /auth/oauthDeviceInitialize is available.")
           }
-        }
-      }),
-
-      zxcv_oauth_callback: tool({
-        description: "Complete OAuth web flow authentication with the callback code",
-        args: {
-          provider: tool.schema.enum(["github"]).describe("OAuth provider"),
-          code: tool.schema.string().describe("OAuth authorization code"),
-          state: tool.schema.string().describe("OAuth state parameter")
-        },
-        async execute(args) {
-          const provider = args.provider
-          const code = args.code
-          const state = args.state
-
-          return await completeOAuthCallback(provider, { code, state })
         }
       }),
 

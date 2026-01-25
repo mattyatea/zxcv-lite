@@ -38,20 +38,13 @@ Create or update `~/.condig/opencode/opencode.json`:
 ### Authentication
 
 #### `zxcv_login`
-Login to Zxcv platform using OAuth (GitHub). Supports both device flow (recommended for CLI) and web flow.
+Login to Zxcv platform using OAuth (GitHub) via device flow.
 
 **Arguments:**
 - `provider` (enum): OAuth provider - currently only "github" is supported
-- `flow` (enum, optional): OAuth flow type - "device" (default, better CLI experience) or "web" (opens browser)
 
 **Device Flow Example:**
 Device flow provides a better CLI experience where you get a short code to enter on GitHub, and the system automatically polls for completion.
-
-**Web Flow Example:**
-Traditional OAuth flow that opens a browser window for authentication.
-
-#### `zxcv_oauth_callback`
-Complete OAuth web flow authentication with callback code.
 
 #### `zxcv_device_poll`
 Poll for device flow authentication completion. This is used internally to check authentication status.
@@ -137,14 +130,9 @@ List all installed rules in current project.
 
 1. **Login to Zxcv (Device Flow - Recommended):**
    ```
-   Use zxcv_login with provider "github" and flow "device"
+   Use zxcv_login with provider "github"
    ```
    This will give you a short code to enter at github.com/device, and the system will automatically detect when you complete the authentication.
-
-2. **Login to Zxcv (Web Flow):**
-   ```
-   Use zxcv_login with provider "github" and flow "web"
-   ```
 
 2. **Search for rules:**
    ```
