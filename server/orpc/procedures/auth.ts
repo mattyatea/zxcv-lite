@@ -240,9 +240,10 @@ export const authProcedures = {
 					method: "POST",
 					headers: {
 						"Accept": "application/json",
+						"Content-Type": "application/x-www-form-urlencoded",
 						"User-Agent": "zxcv-cli",
 					},
-					body: JSON.stringify({
+					body: new URLSearchParams({
 						client_id: env.GH_OAUTH_CLIENT_ID,
 						scope: scopes.join(" "),
 					}),
@@ -443,9 +444,10 @@ export const authProcedures = {
 					method: "POST",
 					headers: {
 						"Accept": "application/json",
+						"Content-Type": "application/x-www-form-urlencoded",
 						"User-Agent": "zxcv-cli",
 					},
-					body: JSON.stringify({
+					body: new URLSearchParams({
 						client_id: env.GH_OAUTH_CLIENT_ID,
 						device_code: deviceCode,
 						grant_type: "urn:ietf:params:oauth:grant-type:device_code",

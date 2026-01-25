@@ -232,7 +232,8 @@ const ZxcvPlugin: Plugin = async (ctx) => {
               flow: "device"
             })
           } catch (error) {
-            throw new Error("Device flow initialization failed. This plugin requires device flow; ensure /auth/oauthDeviceInitialize is available.")
+            const message = error instanceof Error ? error.message : "Unknown error"
+            throw new Error(`Device flow initialization failed: ${message}`)
           }
         }
       }),
