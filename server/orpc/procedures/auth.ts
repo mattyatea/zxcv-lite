@@ -13,7 +13,6 @@ import {
 	performOAuthSecurityChecks,
 	validateOAuthResponse,
 } from "../../services/OAuthSecurityService";
-import { UserPackingService } from "../../services/packing/UserPackingService";
 import type { AuthUser } from "../../services/AuthContextService";
 import type { CloudflareEnv } from "../../types/env";
 import { generateId } from "../../utils/cryptoHash";
@@ -31,6 +30,30 @@ const ensureGitHubOAuthConfigured = (env: CloudflareEnv, locale: Locale) => {
 		});
 	}
 };
+
+const packAuthUser = (user: {
+	id: string;
+	email: string;
+	username: string;
+	role: string;
+	emailVerified: boolean;
+	displayName: string | null;
+	avatarUrl: string | null;
+	bio?: string | null;
+	location?: string | null;
+	website?: string | null;
+}): AuthUser => ({
+	id: user.id,
+	email: user.email,
+	username: user.username,
+	role: user.role,
+	emailVerified: user.emailVerified,
+	displayName: user.displayName,
+	avatarUrl: user.avatarUrl,
+	bio: user.bio ?? null,
+	location: user.location ?? null,
+	website: user.website ?? null,
+});
 
 export const authProcedures = {
 	/**
@@ -69,7 +92,6 @@ export const authProcedures = {
 	refresh: os.auth.refresh.use(dbProvider).handler(async ({ input, context }) => {
 		const { refreshToken } = input as { refreshToken: string };
 		const { db, env, locale } = context;
-		const userPackingService = new UserPackingService();
 
 		// Verify refresh token
 		const userId = await verifyRefreshToken(refreshToken, env);
@@ -86,7 +108,7 @@ export const authProcedures = {
 			throw new ORPCError("UNAUTHORIZED", { message: "User not found" });
 		}
 
-		const authUser = userPackingService.packAuthUser(user);
+		const authUser = packAuthUser(user);
 
 		const accessToken = await createJWT(
 			{
@@ -856,7 +878,6 @@ export const authProcedures = {
 			const { tempToken, username } = input as { tempToken: string; username: string };
 			const { db, env, cloudflare } = context;
 			const locale = getLocaleFromRequest(cloudflare?.request) as Locale;
-			const userPackingService = new UserPackingService();
 			if (context.logContext) {
 				context.logContext.oauth = {
 					flow: "complete_registration",
@@ -968,7 +989,7 @@ export const authProcedures = {
 				return {
 					accessToken: tokens.accessToken,
 					refreshToken: tokens.refreshToken,
-					user: userPackingService.packAuthUser(user),
+					user: packAuthUser(user),
 				};
 			} catch (error) {
 				if (context.logContext) {
@@ -1009,8 +1030,7 @@ export const authProcedures = {
 			});
 		}
 
-		const userPackingService = new UserPackingService();
-		const authUser = userPackingService.packAuthUser(fullUser);
+		const authUser = packAuthUser(fullUser);
 
 		return authUser;
 	}),

@@ -21,22 +21,17 @@ export interface UserPackingOptions {
 	currentUserId?: string;
 	/** メールアドレスを含めるか */
 	includeEmail?: boolean;
+	/** 公開プロフィール向けの最小情報を返すか */
+	publicOnly?: boolean;
 }
 
 /**
- * 認証用ユーザー情報
+ * 検索・一覧向けユーザー情報
  */
-export interface AuthUser {
+export interface UserPack {
 	id: string;
-	email: string;
 	username: string;
-	role: string;
-	emailVerified: boolean;
-	displayName: string | null;
-	avatarUrl: string | null;
-	bio?: string | null;
-	location?: string | null;
-	website?: string | null;
+	email: string | null;
 }
 
 /**
@@ -56,8 +51,7 @@ interface BaseUserProfile {
 }
 
 /**
- * 完全なユーザープロフィール情報（自分のプロフィール向け）
- * センシティブな情報（email, role）を含む
+ * 完全なユーザープロフィール情報
  */
 export interface FullUserProfile extends BaseUserProfile {
 	email: string;
@@ -66,43 +60,15 @@ export interface FullUserProfile extends BaseUserProfile {
 
 /**
  * 他人のユーザープロフィール情報（メール・roleなし）
- * センシティブな情報を除外した公開用プロフィール
  */
 export interface OtherUserProfile extends BaseUserProfile {
 	// センシティブな情報は含まない（省略）
 }
 
 /**
- * ユーザープロフィール情報（統合型）
+ * プロフィールの詳細情報（メール・roleは条件付き）
  */
-export type UserProfile = FullUserProfile | OtherUserProfile;
-
-/**
- * ユーザー統計情報
- */
-export interface UserStats {
-	rulesCount: number;
-	totalStars?: number;
-}
-
-/**
- * 統計情報付きユーザー情報（自分用）
- */
-export interface UserWithStats {
-	id: string;
-	email: string;
-	username: string;
-	role: string;
-	emailVerified: boolean;
-	displayName: string | null;
-	bio: string | null;
-	location: string | null;
-	website: string | null;
-	avatarUrl: string | null;
-	createdAt: number;
-	updatedAt: number;
-	stats: UserStats;
-}
+export type UserDetailProfile = FullUserProfile | OtherUserProfile;
 
 /**
  * 公開プロフィール情報
@@ -119,12 +85,25 @@ export interface PublicUserProfile {
 }
 
 /**
- * 検索用ユーザー情報
+ * プロフィールの詳細情報（統合型）
  */
-export interface SearchUser {
-	id: string;
-	username: string;
-	email: string | null;
+export type UserDetailPack = UserDetailProfile | PublicUserProfile;
+
+/**
+ * ユーザー統計情報
+ */
+export interface UserStats {
+	rulesCount: number;
+	totalStars?: number;
+}
+
+/**
+ * 統計情報付きユーザー情報（自分用）
+ */
+export interface UserMePack extends BaseUserProfile {
+	email: string;
+	role: string;
+	stats: UserStats;
 }
 
 /**
@@ -133,78 +112,77 @@ export interface SearchUser {
  */
 export class UserPackingService {
 	/**
-	 * 認証用ユーザー情報を作成
+	 * 一覧・検索向けユーザー情報を作成
 	 */
-	packAuthUser(user: User): AuthUser {
+	pack(user: User, currentUserId?: string): UserPack;
+	pack(users: User[], currentUserId?: string): UserPack[];
+	pack(userOrUsers: User | User[], currentUserId?: string): UserPack | UserPack[] {
+		if (Array.isArray(userOrUsers)) {
+			return userOrUsers.map((user) => this.pack(user, currentUserId));
+		}
 		return {
-			id: user.id,
-			email: user.email,
-			username: user.username,
-			role: user.role,
-			emailVerified: user.emailVerified,
-			displayName: user.displayName,
-			avatarUrl: user.avatarUrl,
-			bio: user.bio,
-			location: user.location,
-			website: user.website,
+			id: userOrUsers.id,
+			username: userOrUsers.username,
+			email: userOrUsers.id === currentUserId ? userOrUsers.email : null,
 		};
 	}
 
 	/**
-	 * 完全なユーザープロフィール情報を作成（自分のプロフィール用）
+	 * プロフィール詳細情報を作成
 	 */
-	packFullUserProfile(user: User): FullUserProfile {
-		return {
-			id: user.id,
-			username: user.username,
-			email: user.email,
-			role: user.role,
-			emailVerified: user.emailVerified,
-			displayName: user.displayName,
-			bio: user.bio,
-			location: user.location,
-			website: user.website,
-			avatarUrl: user.avatarUrl,
-			createdAt: user.createdAt,
-			updatedAt: user.updatedAt,
-		};
-	}
+	detailPack(user: User, options: UserPackingOptions & { publicOnly: true }): PublicUserProfile;
+	detailPack(user: User, options: UserPackingOptions & { includeEmail: true }): FullUserProfile;
+	detailPack(user: User, options?: UserPackingOptions): UserDetailProfile;
+	detailPack(user: User, options: UserPackingOptions = {}): UserDetailPack {
+		if (options.publicOnly) {
+			return {
+				id: user.id,
+				username: user.username,
+				displayName: user.displayName,
+				bio: user.bio,
+				location: user.location,
+				website: user.website,
+				avatarUrl: user.avatarUrl,
+				createdAt: user.createdAt,
+			};
+		}
 
-	/**
-	 * 他人のユーザープロフィール情報を作成（メール・roleなし）
-	 * センシティブな情報を除外して返す
-	 */
-	packOtherUserProfile(user: User): OtherUserProfile {
-		return {
-			id: user.id,
-			username: user.username,
-			emailVerified: user.emailVerified,
-			displayName: user.displayName,
-			bio: user.bio,
-			location: user.location,
-			website: user.website,
-			avatarUrl: user.avatarUrl,
-			createdAt: user.createdAt,
-			updatedAt: user.updatedAt,
-		};
-	}
-
-	/**
-	 * プロフィール用ユーザー情報を作成（自動判定）
-	 */
-	packUserProfile(user: User, options: UserPackingOptions = {}): UserProfile {
 		const isOwnProfile = options.currentUserId === user.id;
+		const baseProfile: OtherUserProfile = {
+			id: user.id,
+			username: user.username,
+			emailVerified: user.emailVerified,
+			displayName: user.displayName,
+			bio: user.bio,
+			location: user.location,
+			website: user.website,
+			avatarUrl: user.avatarUrl,
+			createdAt: user.createdAt,
+			updatedAt: user.updatedAt,
+		};
 
 		if (isOwnProfile || options.includeEmail) {
-			return this.packFullUserProfile(user);
+			return {
+				...baseProfile,
+				email: user.email,
+				role: user.role,
+			};
 		}
-		return this.packOtherUserProfile(user);
+
+		return baseProfile;
 	}
 
 	/**
-	 * 統計情報付きユーザー情報を作成（自分用）
+	 * 複数ユーザーの一覧・検索情報を作成
 	 */
-	packUserWithStats(user: User, stats: UserStats): UserWithStats {
+	packMany(users: User[], currentUserId?: string): UserPack[] {
+		return users.map((user) => this.pack(user, currentUserId));
+	}
+
+	/**
+	 * 自分向けのユーザー情報を作成
+	 */
+	mePack(user: User, stats: UserStats): UserMePack {
 		return {
 			id: user.id,
 			email: user.email,
@@ -220,39 +198,5 @@ export class UserPackingService {
 			updatedAt: user.updatedAt,
 			stats,
 		};
-	}
-
-	/**
-	 * 公開プロフィール情報を作成
-	 */
-	packPublicProfile(user: User): PublicUserProfile {
-		return {
-			id: user.id,
-			username: user.username,
-			displayName: user.displayName,
-			bio: user.bio,
-			location: user.location,
-			website: user.website,
-			avatarUrl: user.avatarUrl,
-			createdAt: user.createdAt,
-		};
-	}
-
-	/**
-	 * 検索用ユーザー情報を作成
-	 */
-	packSearchUser(user: User, currentUserId?: string): SearchUser {
-		return {
-			id: user.id,
-			username: user.username,
-			email: user.id === currentUserId ? user.email : null,
-		};
-	}
-
-	/**
-	 * 複数ユーザーの検索用情報を一括作成
-	 */
-	packSearchUsers(users: User[], currentUserId?: string): SearchUser[] {
-		return users.map((user) => this.packSearchUser(user, currentUserId));
 	}
 }

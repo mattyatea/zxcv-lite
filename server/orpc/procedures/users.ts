@@ -25,7 +25,7 @@ export const searchByUsername = os.users.searchByUsername
 		const users = await userService.searchUsersByUsername(username, limit);
 
 		// Use UserPackingService to pack search results
-		return userPackingService.packSearchUsers(users, user.id);
+		return userPackingService.packMany(users, user.id);
 	});
 
 // Get user profile by username
@@ -74,7 +74,7 @@ export const getProfile = os.users.getProfile
 		});
 
 		// Use UserPackingService to pack user profile
-		const userProfile = userPackingService.packUserProfile(targetUser, {
+		const userProfile = userPackingService.detailPack(targetUser, {
 			currentUserId: user.id,
 		});
 
@@ -124,7 +124,7 @@ export const me = os.users.me
 		});
 
 		// Use UserPackingService to pack user with stats
-		return userPackingService.packUserWithStats(normalizedUser, stats);
+		return userPackingService.mePack(normalizedUser, stats);
 	});
 
 export const updateProfile = os.users.updateProfile
@@ -172,7 +172,10 @@ export const updateProfile = os.users.updateProfile
 		});
 
 		return {
-			user: userPackingService.packFullUserProfile(updatedUser),
+			user: userPackingService.detailPack(updatedUser, {
+				currentUserId: user.id,
+				includeEmail: true,
+			}),
 		};
 	});
 
@@ -508,7 +511,9 @@ export const getPublicProfile = os.users.getPublicProfile
 		});
 
 		return {
-			user: userPackingService.packPublicProfile(user),
+			user: userPackingService.detailPack(user, {
+				publicOnly: true,
+			}),
 			stats: {
 				publicRulesCount: stats.rulesCount,
 				totalStars: stats.totalStars || 0,

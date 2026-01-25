@@ -9,6 +9,9 @@ interface AuthUser {
 	emailVerified: boolean;
 	displayName: string | null;
 	avatarUrl: string | null;
+	bio?: string | null;
+	location?: string | null;
+	website?: string | null;
 }
 
 interface AuthState {
