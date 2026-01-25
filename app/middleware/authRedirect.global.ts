@@ -1,10 +1,15 @@
 export default defineNuxtRouteMiddleware((to) => {
-	// Redirect old auth routes to new separate pages
-	if (to.path === "/auth") {
-		const tab = to.query.tab;
-		if (tab === "register") {
-			return navigateTo("/register", { replace: true });
-		}
-		return navigateTo("/login", { replace: true });
+	if (to.path === "/login" || to.path === "/register") {
+		const tab = to.path === "/register" ? "register" : "login";
+		return navigateTo(
+			{
+				path: "/auth",
+				query: {
+					...to.query,
+					tab,
+				},
+			},
+			{ replace: true },
+		);
 	}
 });

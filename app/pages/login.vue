@@ -13,9 +13,9 @@
         </h2>
         <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 stagger-item stagger-3">
           {{ t('auth.login.subtitle') }}
-          <NuxtLink to="/register" class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 transition-colors duration-200">
-            {{ t('nav.register') }}
-          </NuxtLink>
+		<NuxtLink to="/auth?tab=register" class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 transition-colors duration-200">
+			{{ t('nav.register') }}
+		</NuxtLink>
         </p>
       </div>
 

@@ -46,12 +46,12 @@
               <div class="absolute inset-0 bg-gradient-to-r from-purple-700 to-pink-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </CommonButton>
             
-            <CommonButton
-              :tag="NuxtLink"
-              to="/register"
-              size="xl"
-              class="group relative px-8 py-4 font-bold text-white border-2 border-white/30 rounded-lg backdrop-blur-sm hover:bg-white/10 hover:border-white/50 transform transition-all duration-300 hover:scale-105 hover:shadow-xl"
-            >
+			<CommonButton
+				:tag="NuxtLink"
+				to="/auth?tab=register"
+				size="xl"
+				class="group relative px-8 py-4 font-bold text-white border-2 border-white/30 rounded-lg backdrop-blur-sm hover:bg-white/10 hover:border-white/50 transform transition-all duration-300 hover:scale-105 hover:shadow-xl"
+			>
               {{ t('home.hero.getStarted') }}
             </CommonButton>
           </div>
@@ -184,12 +184,12 @@
             {{ t('home.cta.description') }}
           </p>
           <div class="mt-12">
-            <CommonButton
-              :tag="NuxtLink"
-              to="/register"
-              variant="secondary"
-              size="xl"
-              class="bg-white text-primary-600 hover:bg-gray-100 hover:scale-105 hover-lift shadow-2xl hover:shadow-3xl transition-all duration-300 font-semibold px-12 py-4"
+			<CommonButton
+				:tag="NuxtLink"
+				to="/auth?tab=register"
+				variant="secondary"
+				size="xl"
+				class="bg-white text-primary-600 hover:bg-gray-100 hover:scale-105 hover-lift shadow-2xl hover:shadow-3xl transition-all duration-300 font-semibold px-12 py-4"
             >
               {{ t('home.cta.button') }}
             </CommonButton>

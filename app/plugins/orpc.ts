@@ -45,12 +45,12 @@ export default defineNuxtPlugin((_nuxtApp) => {
 						localStorage.removeItem("refresh_token");
 						localStorage.removeItem("user");
 
-						const route = useRoute();
-						if (route.path !== "/login" && route.path !== "/register") {
-							navigateTo("/login");
-						}
+					const route = useRoute();
+					if (route.path !== "/auth" && route.path !== "/login" && route.path !== "/register") {
+						navigateTo("/auth");
 					}
 				}
+			}
 			}
 
 			return response;

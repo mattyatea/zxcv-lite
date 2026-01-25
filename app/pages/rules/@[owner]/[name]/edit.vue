@@ -426,7 +426,7 @@ onMounted(() => {
 	console.log("Edit page mounted with params:", routeParams.value);
 
 	if (!user.value) {
-		router.push("/login");
+		router.push("/auth");
 		return;
 	}
 

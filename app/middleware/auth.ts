@@ -21,6 +21,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
 	if (!isAuthenticated.value) {
 		// Save the attempted route for redirect after login
 		const redirectPath = to.fullPath;
-		return navigateTo(`/login?redirect=${encodeURIComponent(redirectPath)}`);
+		return navigateTo(`/auth?redirect=${encodeURIComponent(redirectPath)}`);
 	}
 });

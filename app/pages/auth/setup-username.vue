@@ -221,14 +221,14 @@ const handleSubmit = async () => {
 };
 
 const handleCancel = () => {
-	router.push("/login");
+	router.push("/auth");
 };
 
 // Check if we have required params
 onMounted(() => {
 	if (!tempToken.value || !provider.value) {
 		toastError("無効なリクエストです");
-		router.push("/login");
+		router.push("/auth");
 	}
 });
 

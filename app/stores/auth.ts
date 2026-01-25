@@ -67,8 +67,8 @@ export const useAuthStore = defineStore("auth", () => {
 			// localStorage.removeItem("user"); // ユーザー情報は保存していないので削除不要
 		}
 
-		// Navigate to login
-		await navigateTo("/login");
+		// Navigate to auth
+		await navigateTo("/auth");
 	};
 
 	const refreshAccessToken = async () => {
