@@ -1,5 +1,9 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
+import { createORPCClient } from "@orpc/client"
+import { RPCLink } from "@orpc/client/fetch"
+import type { ContractRouterClient } from "@orpc/contract"
+import { contract } from "../../server/orpc/contracts"
 
 declare const Bun: any
 declare global {
@@ -7,64 +11,82 @@ declare global {
 }
 
 interface Config {
-  apiUrl: string
+  rpcUrl: string
 }
 
 let accessToken: string | null = null
 let refreshToken: string | null = null
 
 const config: Config = {
-  apiUrl: "https://zxcv-lite.nanasi-apps.xyz/api"
+  rpcUrl: "https://zxcv-lite.nanasi-apps.xyz/rpc"
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...options.headers as Record<string, string>
-  }
-
-  if (accessToken) {
-    headers["Authorization"] = `Bearer ${accessToken}`
-  }
-
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    ...options,
-    headers
-  })
-
-  if (response.status === 401 && refreshToken) {
-    await refreshTokens()
+const rpcLink = new RPCLink({
+  url: config.rpcUrl,
+  fetch: async (request, init) => {
+    const requestInit = init as RequestInit | undefined
+    const headers = new Headers(requestInit?.headers)
+    headers.set("Content-Type", "application/json")
     if (accessToken) {
-      headers["Authorization"] = `Bearer ${accessToken}`
-      return request<T>(path, options)
+      headers.set("Authorization", `Bearer ${accessToken}`)
     }
+
+    return fetch(request, {
+      ...requestInit,
+      headers
+    })
+  }
+})
+
+const rpcClient: ContractRouterClient<typeof contract> =
+  createORPCClient(rpcLink)
+
+const isUnauthorizedError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false
+
+  if ("status" in error && (error as { status?: number }).status === 401) {
+    return true
   }
 
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`)
+  if ("code" in error && (error as { code?: string }).code === "UNAUTHORIZED") {
+    return true
   }
 
-  return response.json() as T
+  if (
+    "response" in error &&
+    (error as { response?: unknown }).response instanceof Response
+  ) {
+    return (error as { response: Response }).response.status === 401
+  }
+
+  return false
+}
+
+async function executeWithRefresh<T>(action: () => Promise<T>): Promise<T> {
+  try {
+    return await action()
+  } catch (error) {
+    if (refreshToken && isUnauthorizedError(error)) {
+      await refreshTokens()
+      return await action()
+    }
+    throw error
+  }
 }
 
 async function refreshTokens(): Promise<void> {
   if (!refreshToken) return
 
-  const result = await request<{ accessToken: string; refreshToken: string }>(
-    "/auth/refresh",
-    {
-      method: "POST",
-      body: JSON.stringify({ refreshToken })
-    }
-  )
-
-  accessToken = result.accessToken
-  refreshToken = result.refreshToken
-
-  await saveTokens()
+  try {
+    const result = await rpcClient.auth.refresh({ refreshToken })
+    accessToken = result.accessToken
+    refreshToken = result.refreshToken
+    await saveTokens()
+  } catch (error) {
+    accessToken = null
+    refreshToken = null
+    throw error
+  }
 }
 
 async function saveTokens(): Promise<void> {
@@ -185,18 +207,8 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           const provider = args.provider
           // GitHub Device Flow (required)
           try {
-            const deviceResult = await request<{ 
-              device_code: string;
-              user_code: string;
-              verification_uri: string;
-              expires_in: number;
-              interval: number;
-            }>(
-              "/auth/oauthDeviceInitialize",
-              {
-                method: "POST",
-                body: JSON.stringify({ provider })
-              }
+            const deviceResult = await executeWithRefresh(() =>
+              rpcClient.auth.oauthDeviceInitialize({ provider })
             )
 
             return JSON.stringify({
@@ -254,12 +266,8 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         },
         async execute(args) {
           try {
-            const result = await request<{ accessToken: string; refreshToken: string; user: User } | { tempToken: string; provider: string; requiresUsername: true } | { error: string; error_description?: string }>(
-              "/auth/oauthDeviceCallback",
-              {
-                method: "POST",
-                body: JSON.stringify({ deviceCode: args.deviceCode })
-              }
+            const result = await executeWithRefresh(() =>
+              rpcClient.auth.oauthDeviceCallback({ deviceCode: args.deviceCode })
             )
 
             if ("error" in result) {
@@ -326,7 +334,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             throw new Error("Not authenticated. Please login first using zxcv_login.")
           }
 
-          const user = await request<User>("/auth/me")
+          const user = await executeWithRefresh(() => rpcClient.auth.me())
           return JSON.stringify(user)
         }
       }),
@@ -356,13 +364,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           if (args.visibility) body.visibility = args.visibility
           if (args.sortBy) body.sortBy = args.sortBy
 
-          const result = await request<{ rules: Rule[]; total: number; page: number; limit: number }>(
-            "/rules/search",
-            {
-              method: "POST",
-              body: JSON.stringify(body)
-            }
-          )
+          const result = await executeWithRefresh(() => rpcClient.rules.search(body))
 
           return JSON.stringify({
             message: `Found ${result.total} rules`,
@@ -380,10 +382,9 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           path: tool.schema.string().describe("Rule path in format @owner/rulename")
         },
         async execute(args) {
-          const rule = await request<Rule>("/rules/getByPath", {
-            method: "POST",
-            body: JSON.stringify({ path: args.path })
-          })
+          const rule = await executeWithRefresh(() =>
+            rpcClient.rules.getByPath({ path: args.path })
+          )
 
           return JSON.stringify(rule)
         }
@@ -396,13 +397,10 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           version: tool.schema.string().optional().describe("Specific version (optional)")
         },
         async execute(args) {
-          const body: Record<string, unknown> = { id: args.id }
+          const body: { id: string; version?: string } = { id: args.id }
           if (args.version) body.version = args.version
 
-          const content = await request<RuleContent>("/rules/getContent", {
-            method: "POST",
-            body: JSON.stringify(body)
-          })
+          const content = await executeWithRefresh(() => rpcClient.rules.getContent(body))
 
           return JSON.stringify(content)
         }
@@ -417,14 +415,10 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         },
         async execute(args) {
           const [rule, content] = await Promise.all([
-            request<Rule>("/rules/getByPath", {
-              method: "POST",
-              body: JSON.stringify({ id: args.id })
-            }),
-            request<RuleContent>("/rules/getContent", {
-              method: "POST",
-              body: JSON.stringify({ id: args.id, version: args.version })
-            })
+            executeWithRefresh(() => rpcClient.rules.get({ id: args.id })),
+            executeWithRefresh(() =>
+              rpcClient.rules.getContent({ id: args.id, version: args.version })
+            )
           ])
 
           const rulesDir = `${process.env.HOME}/.config/opencode/rules`
@@ -543,10 +537,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             return JSON.stringify({ message: "Not logged in" })
           }
 
-          await request<{ success: boolean; message: string }>("/auth/logout", {
-            method: "POST",
-            body: JSON.stringify({ refreshToken })
-          })
+          await executeWithRefresh(() => rpcClient.auth.logout({ refreshToken }))
 
           accessToken = null
           refreshToken = null
