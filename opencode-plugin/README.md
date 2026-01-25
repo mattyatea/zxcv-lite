@@ -17,7 +17,7 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
    ```json
    {
      "$schema": "https://opencode.ai/config.json",
-     "plugin": ["zxcv-opencode-plugin","opencode-rules"]
+      "plugin": ["opencode-rules-plugin","opencode-rules"]
    }
    ```
 
@@ -25,11 +25,11 @@ An OpenCode plugin that integrates with the Zxcv AI Coding Rules platform.
 
 ### Using opencode
 ```text
-install zxcv-opencode-plugin and opencode-rules.
+install opencode-rules-plugin and opencode-rules.
 Create or update `~/.config/opencode/opencode.json`:
    {
      "$schema": "https://opencode.ai/config.json",
-     "plugin": ["zxcv-opencode-plugin","opencode-rules"]
+      "plugin": ["opencode-rules-plugin","opencode-rules"]
    }
 ```
 
@@ -195,7 +195,7 @@ Install the [opencode-rules](https://github.com/frap129/opencode-rules) plugin:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["zxcv-opencode-plugin", "opencode-rules"]
+  "plugin": ["opencode-rules-plugin", "opencode-rules"]
 }
 ```
 

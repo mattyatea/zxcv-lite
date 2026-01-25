@@ -1,15 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
-import { createORPCClient } from "@orpc/client"
-import type { ContractRouterClient } from "@orpc/contract"
-import type { JsonifiedClient } from "@orpc/openapi-client"
-import { OpenAPILink } from "@orpc/openapi-client/fetch"
-import { contract } from "../../server/orpc/contracts"
-
-declare const Bun: any
-declare global {
-	var Bun: any
-}
+import { access, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises"
+import { basename, join } from "node:path"
 
 interface Config {
   apiUrl: string
@@ -25,23 +17,41 @@ const config: Config = {
     "https://zxcv-lite.nanasi-apps.xyz/api"
 }
 
-const openAPILink = new OpenAPILink(contract, {
-  url: config.apiUrl,
-  headers: () => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-  fetch: async (request, init) => {
-    const requestInit = init as RequestInit | undefined
-    const headers = new Headers(requestInit?.headers)
-    headers.set("Content-Type", "application/json")
+const getConfigDir = (): string => join(process.env.HOME ?? "", ".config", "opencode")
+const getRulesDir = (): string => join(getConfigDir(), "rules")
 
-    return fetch(request, {
-      ...requestInit,
-      headers
-    })
+const buildApiUrl = (path: string): string => {
+  const baseUrl = config.apiUrl.replace(/\/$/, "")
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`
+  return `${baseUrl}${normalizedPath}`
+}
+
+const apiRequest = async <T = unknown>(
+  path: string,
+  options: { method?: "GET" | "POST"; body?: unknown } = {}
+): Promise<T> => {
+  const headers = new Headers()
+  headers.set("Content-Type", "application/json")
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`)
+
+  const response = await fetch(buildApiUrl(path), {
+    method: options.method ?? "POST",
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  })
+
+  if (!response.ok) {
+    const error = new Error(`Request failed with status ${response.status}`)
+    ;(error as { status?: number }).status = response.status
+    throw error
   }
-})
 
-const rpcClient: JsonifiedClient<ContractRouterClient<typeof contract>> =
-  createORPCClient(openAPILink)
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return response.json() as Promise<T>
+}
 
 const isUnauthorizedError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false
@@ -80,7 +90,10 @@ async function refreshTokens(): Promise<void> {
   if (!refreshToken) return
 
   try {
-    const result = await rpcClient.auth.refresh({ refreshToken })
+    const result = await apiRequest<{ accessToken: string; refreshToken: string }>(
+      "/auth/refresh",
+      { body: { refreshToken } }
+    )
     accessToken = result.accessToken
     refreshToken = result.refreshToken
     await saveTokens()
@@ -92,15 +105,18 @@ async function refreshTokens(): Promise<void> {
 }
 
 async function saveTokens(): Promise<void> {
-  const configDir = `${process.env.HOME}/.config/opencode`
-  await Bun.$`mkdir -p ${configDir}`
-  await Bun.write(`${configDir}/zxcv-auth.json`, JSON.stringify({ accessToken, refreshToken }))
+  const configDir = getConfigDir()
+  await mkdir(configDir, { recursive: true })
+  await writeFile(
+    join(configDir, "zxcv-auth.json"),
+    JSON.stringify({ accessToken, refreshToken })
+  )
 }
 
 async function loadTokens(): Promise<void> {
   try {
-    const configDir = `${process.env.HOME}/.config/opencode`
-    const data = await Bun.file(`${configDir}/zxcv-auth.json`).text()
+    const configDir = getConfigDir()
+    const data = await readFile(join(configDir, "zxcv-auth.json"), "utf8")
     const tokens = JSON.parse(data)
     accessToken = tokens.accessToken
     refreshToken = tokens.refreshToken
@@ -161,6 +177,30 @@ interface User {
   website: string | null
 }
 
+type OAuthDeviceInitResponse = {
+  device_code: string
+  user_code: string
+  verification_uri: string
+  expires_in: number
+  interval: number
+}
+
+type OAuthDeviceCallbackResponse =
+  | {
+      error: string
+      error_description?: string
+    }
+  | {
+      tempToken: string
+      provider: string
+      requiresUsername: true
+    }
+  | {
+      accessToken: string
+      refreshToken: string
+      user: User
+    }
+
 const LANGUAGE_MAP: Record<string, string[]> = {
   typescript: ["**/*.ts", "**/*.tsx"],
   javascript: ["**/*.js", "**/*.jsx", "**/*.mjs"],
@@ -211,7 +251,9 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           // GitHub Device Flow (required)
           try {
             const deviceResult = await executeWithRefresh(() =>
-              rpcClient.auth.oauthDeviceInitialize({ provider })
+              apiRequest<OAuthDeviceInitResponse>("/auth/oauthDeviceInitialize", {
+                body: { provider }
+              })
             )
 
             return JSON.stringify({
@@ -271,7 +313,9 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         async execute(args) {
           try {
             const result = await executeWithRefresh(() =>
-              rpcClient.auth.oauthDeviceCallback({ deviceCode: args.deviceCode })
+              apiRequest<OAuthDeviceCallbackResponse>("/auth/oauthDeviceCallback", {
+                body: { deviceCode: args.deviceCode }
+              })
             )
 
             if ("error" in result) {
@@ -338,7 +382,9 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             throw new Error("Not authenticated. Please login first using zxcv_login.")
           }
 
-          const user = await executeWithRefresh(() => rpcClient.auth.me())
+          const user = await executeWithRefresh(() =>
+            apiRequest<User>("/auth/me", { method: "GET" })
+          )
           return JSON.stringify(user)
         }
       }),
@@ -368,7 +414,12 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           if (args.visibility) body.visibility = args.visibility
           if (args.sortBy) body.sortBy = args.sortBy
 
-          const result = await executeWithRefresh(() => rpcClient.rules.search(body))
+          const result = await executeWithRefresh(() =>
+            apiRequest<{ rules: Rule[]; total: number; page: number; limit: number }>(
+              "/rules/search",
+              { body }
+            )
+          )
 
           return JSON.stringify({
             message: `Found ${result.total} rules`,
@@ -387,7 +438,7 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         },
         async execute(args) {
           const rule = await executeWithRefresh(() =>
-            rpcClient.rules.getByPath({ path: args.path })
+            apiRequest<Rule>("/rules/getByPath", { body: { path: args.path } })
           )
 
           return JSON.stringify(rule)
@@ -404,7 +455,9 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           const body: { id: string; version?: string } = { id: args.id }
           if (args.version) body.version = args.version
 
-          const content = await executeWithRefresh(() => rpcClient.rules.getContent(body))
+          const content = await executeWithRefresh(() =>
+            apiRequest<RuleContent>("/rules/getContent", { body })
+          )
 
           return JSON.stringify(content)
         }
@@ -419,14 +472,16 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         },
         async execute(args) {
           const [rule, content] = await Promise.all([
-            executeWithRefresh(() => rpcClient.rules.get({ id: args.id })),
+            executeWithRefresh(() => apiRequest<Rule>("/rules/get", { body: { id: args.id } })),
             executeWithRefresh(() =>
-              rpcClient.rules.getContent({ id: args.id, version: args.version })
+              apiRequest<RuleContent>("/rules/getContent", {
+                body: { id: args.id, version: args.version }
+              })
             )
           ])
 
-          const rulesDir = `${process.env.HOME}/.config/opencode/rules`
-          await Bun.$`mkdir -p ${rulesDir}`
+          const rulesDir = getRulesDir()
+          await mkdir(rulesDir, { recursive: true })
 
           let ruleContent = content.content
 
@@ -445,8 +500,8 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             ruleContent = `${yamlFrontMatter}\n${ruleContent}`
           }
 
-          const rulePath = `${rulesDir}/${content.name}.md`
-          await Bun.write(rulePath, ruleContent)
+          const rulePath = join(rulesDir, `${content.name}.md`)
+          await writeFile(rulePath, ruleContent)
 
           return JSON.stringify({
             message: `Rule "${content.name}" installed successfully!`,
@@ -461,39 +516,39 @@ const ZxcvPlugin: Plugin = async (ctx) => {
         description: "List all globally installed rules (~/.config/opencode/rules)",
         args: {},
         async execute() {
+          const rulesDir = getRulesDir()
           try {
-            const rulesDir = `${process.env.HOME}/.config/opencode/rules`
-            
-            const files: string[] = []
-            const glob = new (Bun as any).Glob(`${rulesDir}/*.md`)
-            for await (const path of glob.scan()) {
-              files.push(path as string)
-            }
-
-            const rules = await Promise.all(
-              files.map(async (filePath: string) => {
-                const name = filePath.split("/").pop()?.replace(".md", "") || "unknown"
-                const content = await Bun.file(filePath).text()
-                const firstLine = content.split("\n")[0]
-
-                return {
-                  name,
-                  path: filePath,
-                  description: firstLine.startsWith("#") ? firstLine.substring(1).trim() : "No description"
-                }
-              })
-            )
-
-            return JSON.stringify({
-              message: rules.length > 0 ? `Found ${rules.length} installed rules` : "No rules installed yet",
-              rules
-            })
-          } catch (error) {
+            await access(rulesDir)
+          } catch {
             return JSON.stringify({
               message: "No rules directory found",
               rules: []
             })
           }
+
+          const entries = await readdir(rulesDir, { withFileTypes: true })
+          const files = entries
+            .filter(entry => entry.isFile() && entry.name.endsWith(".md"))
+            .map(entry => join(rulesDir, entry.name))
+
+          const rules = await Promise.all(
+            files.map(async (filePath: string) => {
+              const name = basename(filePath).replace(".md", "")
+              const content = await readFile(filePath, "utf8")
+              const firstLine = content.split("\n")[0]
+
+              return {
+                name,
+                path: filePath,
+                description: firstLine.startsWith("#") ? firstLine.substring(1).trim() : "No description"
+              }
+            })
+          )
+
+          return JSON.stringify({
+            message: rules.length > 0 ? `Found ${rules.length} installed rules` : "No rules installed yet",
+            rules
+          })
         }
       }),
 
@@ -503,22 +558,20 @@ const ZxcvPlugin: Plugin = async (ctx) => {
           name: tool.schema.string().describe("Rule name to uninstall (without .md extension)")
         },
         async execute(args) {
+          const rulesDir = getRulesDir()
+          const rulePath = join(rulesDir, `${args.name}.md`)
+
           try {
-            const rulesDir = `${process.env.HOME}/.config/opencode/rules`
-            const rulePath = `${rulesDir}/${args.name}.md`
-            
-            // Check if rule exists
-            const file = Bun.file(rulePath)
-            if (!(await file.exists())) {
-              return JSON.stringify({
-                message: `Rule "${args.name}" is not installed`,
-                installed: false
-              })
-            }
+            await access(rulePath)
+          } catch {
+            return JSON.stringify({
+              message: `Rule "${args.name}" is not installed`,
+              installed: false
+            })
+          }
 
-            // Remove the rule file
-            await Bun.$`rm -f ${rulePath}`
-
+          try {
+            await unlink(rulePath)
             return JSON.stringify({
               message: `Rule "${args.name}" uninstalled successfully!`,
               removed: true,
@@ -541,13 +594,19 @@ const ZxcvPlugin: Plugin = async (ctx) => {
             return JSON.stringify({ message: "Not logged in" })
           }
 
-          await executeWithRefresh(() => rpcClient.auth.logout({ refreshToken }))
+          await executeWithRefresh(() =>
+            apiRequest("/auth/logout", { body: { refreshToken } })
+          )
 
           accessToken = null
           refreshToken = null
 
-          const configDir = `${process.env.HOME}/.config/opencode`
-          await Bun.$`rm -f ${configDir}/zxcv-auth.json`
+          const configDir = getConfigDir()
+          try {
+            await unlink(join(configDir, "zxcv-auth.json"))
+          } catch {
+            // ignore
+          }
 
           return JSON.stringify({ message: "Successfully logged out" })
         }

@@ -3,7 +3,7 @@
   "version": "1.2.3",
   "type": "module",
   "description": "OpenCode plugin for Zxcv AI Coding Rules platform",
-  "main": "dist/opencode-plugin/src/index.js",
+  "main": "dist/index.js",
   "bin": {
     "opencode-rules-plugin": "dist/cli.js"
   },
@@ -25,7 +25,7 @@
     "@orpc/contract": "^1.13.4"
   },
   "devDependencies": {
-    "@types/bun": "^1.1.0",
+    "@types/node": "^20.11.0",
     "typescript": "^5.0.0"
   },
   "keywords": [
