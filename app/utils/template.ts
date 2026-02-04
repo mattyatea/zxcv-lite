@@ -13,6 +13,91 @@ export interface TemplateRenderOptions {
 	[key: string]: string;
 }
 
+type SectionBlock = {
+	heading: string | null;
+	level: number;
+	lines: string[];
+};
+
+const EMPTY_SECTION_TOKENS = new Set([
+	"",
+	"なし",
+	"無し",
+	"特になし",
+	"特に無し",
+	"ありません",
+	"なしです",
+	"なしでした",
+	"n/a",
+	"na",
+	"none",
+	"nil",
+]);
+
+const normalizeSectionLine = (line: string): string => {
+	const cleaned = line
+		.trim()
+		.replace(/^[-*•]\s+/, "")
+		.replace(/^\d+[.)]\s+/, "")
+		.replace(/^[(（]\s*/, "")
+		.replace(/\s*[)）]$/, "")
+		.replace(/[。：:・]+$/g, "")
+		.toLowerCase();
+
+	return cleaned;
+};
+
+const hasMeaningfulContent = (lines: string[]): boolean => {
+	return lines.some((line) => {
+		if (!line.trim()) return false;
+		const normalized = normalizeSectionLine(line);
+		if (!normalized) return false;
+		return !EMPTY_SECTION_TOKENS.has(normalized);
+	});
+};
+
+const omitEmptySections = (content: string): string => {
+	const lines = content.split("\n");
+	const sections: SectionBlock[] = [];
+	let currentSection: SectionBlock = { heading: null, level: 0, lines: [] };
+
+	const headingRegex = /^(#{1,6})\s+/;
+
+	for (const line of lines) {
+		const headingMatch = headingRegex.exec(line);
+		if (headingMatch) {
+			sections.push(currentSection);
+			currentSection = {
+				heading: line,
+				level: headingMatch[1]?.length ?? 0,
+				lines: [],
+			};
+			continue;
+		}
+		currentSection.lines.push(line);
+	}
+	sections.push(currentSection);
+
+	const filtered = sections.filter((section, index) => {
+		if (!section.heading) return true;
+		if (hasMeaningfulContent(section.lines)) return true;
+		const nextSection = sections[index + 1];
+		if (nextSection?.heading && nextSection.level > section.level) {
+			return true;
+		}
+		return false;
+	});
+
+	return filtered
+		.map((section) => {
+			if (!section.heading) {
+				return section.lines.join("\n");
+			}
+			return [section.heading, ...section.lines].join("\n");
+		})
+		.join("\n");
+};
+
 /**
  * Parse template variables from content
  * Extracts all {{variable}} occurrences
@@ -70,7 +155,7 @@ export function renderTemplate(content: string, values: TemplateRenderOptions): 
 		rendered = rendered.replace(regex, escapedValue);
 	}
 
-	return rendered;
+	return omitEmptySections(rendered);
 }
 
 /**
