@@ -245,7 +245,13 @@
 			"rendered": "Rendered Content",
 			"original": "Original Template",
 			"applied": "Template applied successfully",
-			"applyError": "Failed to apply template"
+			"applyError": "Failed to apply template",
+			"meetingType": {
+				"auto": "Auto detect",
+				"study": "Study session",
+				"regular": "Recurring",
+				"decision": "Decision-making"
+			}
 		},
 		"form": {
 			"name": "Rule name",

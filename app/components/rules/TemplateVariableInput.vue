@@ -24,7 +24,14 @@
 						- {{ variable.description }}
 					</span>
 				</label>
+				<CommonSelect
+					v-if="isMeetingTypeVariable(variable.name)"
+					:model-value="localValues[variable.name] || MEETING_TYPE_AUTO_VALUE"
+					:options="meetingTypeOptions"
+					@update:model-value="(value) => handleMeetingTypeChange(variable.name, value)"
+				/>
 				<CommonInput
+					v-else
 					:id="`var-${variable.name}`"
 					v-model="localValues[variable.name]"
 					:placeholder="variable.defaultValue || t('rules.template.placeholder', { name: variable.name })"
@@ -60,6 +67,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { detectMeetingType } from "~/utils/template";
 
 interface TemplateVariable {
 	name: string;
@@ -85,6 +93,18 @@ const emit = defineEmits<Emits>();
 
 const { t } = useI18n();
 
+const MEETING_TYPE_AUTO_VALUE = "__auto__";
+const MEETING_TYPE_VARIABLES = new Set(["meetingType", "meeting_type"]);
+
+const meetingTypeOptions = computed(() => [
+	{ value: MEETING_TYPE_AUTO_VALUE, label: t("rules.template.meetingType.auto") },
+	{ value: "勉強会", label: t("rules.template.meetingType.study") },
+	{ value: "定例", label: t("rules.template.meetingType.regular") },
+	{ value: "意思決定", label: t("rules.template.meetingType.decision") },
+]);
+
+const isMeetingTypeVariable = (name: string) => MEETING_TYPE_VARIABLES.has(name);
+
 // Local state for input values
 const localValues = ref<Record<string, string>>({ ...props.modelValue });
 
@@ -96,6 +116,31 @@ const hasValues = computed(() => {
 // Debounce timer
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+const resolveMeetingType = (values: Record<string, string>) => {
+	const meetingTypeKey = Object.keys(values).find((key) =>
+		MEETING_TYPE_VARIABLES.has(key),
+	);
+
+	if (!meetingTypeKey) {
+		return values;
+	}
+
+	const meetingTypeValue = values[meetingTypeKey];
+	if (meetingTypeValue && meetingTypeValue !== MEETING_TYPE_AUTO_VALUE) {
+		return values;
+	}
+
+	const sourceText = Object.entries(values)
+		.filter(([key]) => !MEETING_TYPE_VARIABLES.has(key))
+		.map(([, value]) => value)
+		.join("\n");
+
+	return {
+		...values,
+		[meetingTypeKey]: detectMeetingType(sourceText),
+	};
+};
+
 // Handle input changes with debouncing
 const handleInput = () => {
 	if (debounceTimer) {
@@ -103,8 +148,17 @@ const handleInput = () => {
 	}
 
 	debounceTimer = setTimeout(() => {
-		emit("update:modelValue", { ...localValues.value });
+		emit("update:modelValue", resolveMeetingType({ ...localValues.value }));
 	}, 300);
+};
+
+const handleMeetingTypeChange = (name: string, value: string) => {
+	if (value === MEETING_TYPE_AUTO_VALUE) {
+		localValues.value[name] = value;
+	} else {
+		localValues.value[name] = value;
+	}
+	handleInput();
 };
 
 // Handle clear all
@@ -115,7 +169,7 @@ const handleClear = () => {
 
 // Handle apply
 const handleApply = () => {
-	emit("apply", { ...localValues.value });
+	emit("apply", resolveMeetingType({ ...localValues.value }));
 };
 
 // Watch for external changes

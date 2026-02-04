@@ -91,6 +91,70 @@ export function isValidVariableName(name: string): boolean {
 	return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 }
 
+export type MeetingType = "勉強会" | "定例" | "意思決定";
+
+const MEETING_TYPE_KEYWORDS: Record<MeetingType, string[]> = {
+	勉強会: [
+		"勉強会",
+		"学習",
+		"学び",
+		"研修",
+		"読書会",
+		"ワークショップ",
+		"study session",
+		"workshop",
+		"training",
+		"learning",
+	],
+	定例: [
+		"定例",
+		"週次",
+		"月次",
+		"隔週",
+		"日次",
+		"スタンドアップ",
+		"1on1",
+		"regular",
+		"recurring",
+		"weekly",
+		"monthly",
+		"standup",
+	],
+	意思決定: [
+		"意思決定",
+		"決定",
+		"承認",
+		"合意",
+		"稟議",
+		"decision",
+		"approval",
+		"sign-off",
+		"sign off",
+		"alignment",
+	],
+};
+
+export function detectMeetingType(input: string): MeetingType {
+	const normalized = input.toLowerCase();
+	const source = `${input}\n${normalized}`;
+	const matches = (keywords: string[]) =>
+		keywords.some((keyword) => source.includes(keyword));
+
+	if (matches(MEETING_TYPE_KEYWORDS.意思決定)) {
+		return "意思決定";
+	}
+
+	if (matches(MEETING_TYPE_KEYWORDS.勉強会)) {
+		return "勉強会";
+	}
+
+	if (matches(MEETING_TYPE_KEYWORDS.定例)) {
+		return "定例";
+	}
+
+	return "定例";
+}
+
 /**
  * Extract template metadata from content
  * Looks for special comments like: <!-- template: language = "english" -->

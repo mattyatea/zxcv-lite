@@ -153,7 +153,13 @@
 			"rendered": "レンダリング済みコンテンツ",
 			"original": "元のテンプレート",
 			"applied": "テンプレートを適用しました",
-			"applyError": "テンプレートの適用に失敗しました"
+			"applyError": "テンプレートの適用に失敗しました",
+			"meetingType": {
+				"auto": "自動判定",
+				"study": "勉強会",
+				"regular": "定例",
+				"decision": "意思決定"
+			}
 		},
 		"form": {
 			"name": "ルール名",
