@@ -68,6 +68,7 @@
               <option value="codeReviewer">{{ t('rules.templates.codeReviewer') }}</option>
               <option value="testGenerator">{{ t('rules.templates.testGenerator') }}</option>
               <option value="docWriter">{{ t('rules.templates.docWriter') }}</option>
+              <option value="minutesExtractor">{{ t('rules.templates.minutesExtractor') }}</option>
               <option value="generalHelper">{{ t('rules.templates.generalHelper') }}</option>
             </select>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -381,6 +382,53 @@ This agent specializes in creating and maintaining documentation.
 3. Write code comments and docstrings
 4. Maintain README files
 5. Create architectural documentation`,
+
+		minutesExtractor: `# Meeting Minutes Decision & Action Extractor
+
+An agent for extracting confirmed decisions and actionable items from meeting minutes
+
+## Type
+custom
+
+## Capabilities
+- Decision item identification
+- Action item extraction
+- Ownership and deadline detection
+- Ambiguity handling with fallbacks
+- Duplicate consolidation
+
+## Tools
+- Read
+- Write
+
+## Instructions
+Focus on accuracy over recall. Only extract items that are explicitly confirmed.
+
+### Decision Criteria
+1. Finality is stated (e.g., "決定", "確定", "合意", "了承", "承認")
+2. The scope is clear and specific
+3. The statement is not a proposal, hypothesis, or open question
+
+### Action Item Criteria
+1. A concrete task or next step is stated
+2. There is an owner (person/team) or implied responsible party
+3. A due date or timing is mentioned when available
+
+### Exclusions
+- Discussions without conclusion
+- Tentative ideas or proposals
+- Questions, risks, or blockers without a decided response
+- Background context or explanations
+
+### Fallback Policy
+- If an item looks like a decision/action but is not explicit, add it to "Needs Confirmation"
+- Provide the reason why it is uncertain (missing owner, unclear finality, etc.)
+- If no reliable items exist, output "なし" for that section
+
+### Output Format
+- Decisions: bullet list with short summary + supporting quote
+- Action Items: owner / task / due date (if any) + supporting quote
+- Needs Confirmation: candidate items + uncertainty reason`,
 
 		generalHelper: `# Development Assistant
 

@@ -360,6 +360,7 @@
 			"codeReviewer": "Code Reviewer",
 			"testGenerator": "Test Generator",
 			"docWriter": "Documentation Writer",
+			"minutesExtractor": "Minutes Decision & Action Extractor",
 			"generalHelper": "General Assistant"
 		}
 	},

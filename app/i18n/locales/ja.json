@@ -268,6 +268,7 @@
 			"codeReviewer": "コードレビュー",
 			"testGenerator": "テスト生成",
 			"docWriter": "ドキュメント作成",
+			"minutesExtractor": "議事録の決定事項/アクション抽出",
 			"generalHelper": "汎用アシスタント"
 		}
 	},
