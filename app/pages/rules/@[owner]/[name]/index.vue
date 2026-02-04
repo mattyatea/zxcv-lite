@@ -986,10 +986,84 @@ const toggleStar = async () => {
 	}
 };
 
+const EMPTY_SECTION_PLACEHOLDERS = new Set([
+	"なし",
+	"無し",
+	"特になし",
+	"特にありません",
+	"未記入",
+	"未設定",
+	"n/a",
+	"na",
+	"none",
+	"null",
+]);
+
+const normalizeSectionLine = (line: string) => {
+	let normalized = line.trim();
+
+	if (!normalized) {
+		return "";
+	}
+
+	normalized = normalized
+		.replace(/^([-*+•]|\d+\.)\s+/u, "")
+		.replace(/^[‐‑‒–—―ー・]+/u, "")
+		.replace(/[。．.!！?？:：]+$/u, "")
+		.trim();
+
+	if (!normalized) {
+		return "";
+	}
+
+	const lower = normalized.toLowerCase();
+	if (EMPTY_SECTION_PLACEHOLDERS.has(lower)) {
+		return "";
+	}
+
+	return normalized;
+};
+
+const hasMeaningfulContent = (lines: string[]) =>
+	lines.some((line) => normalizeSectionLine(line).length > 0);
+
+const stripEmptySections = (content: string) => {
+	const lines = content.split(/\r?\n/);
+	const sections: { heading: string | null; lines: string[] }[] = [
+		{ heading: null, lines: [] },
+	];
+
+	for (const line of lines) {
+		if (/^#{1,6}\s+/.test(line.trim())) {
+			sections.push({ heading: line, lines: [] });
+			continue;
+		}
+
+		sections[sections.length - 1]?.lines.push(line);
+	}
+
+	const result: string[] = [];
+	for (const section of sections) {
+		if (section.heading && !hasMeaningfulContent(section.lines)) {
+			continue;
+		}
+
+		if (section.heading) {
+			result.push(section.heading);
+		}
+
+		result.push(...section.lines);
+	}
+
+	return result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+};
+
 // Simple markdown renderer (can be enhanced with a proper markdown library)
 const renderMarkdown = (content: string) => {
+	const sanitizedContent = stripEmptySections(content);
+
 	// This is a very basic implementation. Consider using a proper markdown library
-	return content
+	return sanitizedContent
 		.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mb-4">$1</h1>')
 		.replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mb-3">$1</h2>')
 		.replace(/^### (.*$)/gim, '<h3 class="text-lg font-medium mb-2">$1</h3>')
