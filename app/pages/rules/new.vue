@@ -56,12 +56,28 @@
             />
           </div>
 
+          <div v-if="form.type === 'rule'" class="mt-4">
+            <label for="ruleTemplate" class="label">{{ t('rules.form.ruleTemplate') }}</label>
+            <select
+              id="ruleTemplate"
+              v-model="selectedRuleTemplate"
+              @change="applyRuleTemplate"
+              class="input"
+            >
+              <option value="">{{ t('rules.form.selectTemplate') }}</option>
+              <option value="meetingMinutes">{{ t('rules.templates.meetingMinutes') }}</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('rules.form.ruleTemplateHint') }}
+            </p>
+          </div>
+
           <div v-if="form.type === 'ccsubagents'" class="mt-4">
             <label for="agentTemplate" class="label">{{ t('rules.form.agentTemplate') }}</label>
             <select
               id="agentTemplate"
-              v-model="selectedTemplate"
-              @change="applyTemplate"
+              v-model="selectedAgentTemplate"
+              @change="applyAgentTemplate"
               class="input"
             >
               <option value="">{{ t('rules.form.selectTemplate') }}</option>
@@ -233,7 +249,8 @@ const tagInput = ref("");
 const loading = ref(false);
 const error = ref("");
 const showFileUpload = ref(false);
-const selectedTemplate = ref("");
+const selectedAgentTemplate = ref("");
+const selectedRuleTemplate = ref("");
 
 const handleFileUpload = (event) => {
 	const file = event.target.files[0];
@@ -283,10 +300,9 @@ const handleSubmit = async () => {
 	}
 };
 
-const applyTemplate = () => {
-	if (!selectedTemplate.value) return;
+const applyAgentTemplate = () => {
+	if (!selectedAgentTemplate.value) return;
 
-	// Subagentテンプレートを適用
 	const templates = {
 		codeReviewer: `# Code Review Expert
 
@@ -410,9 +426,48 @@ This is a general-purpose agent for various development tasks.
 5. Provide development guidance`,
 	};
 
-	if (templates[selectedTemplate.value]) {
-		form.value.content = templates[selectedTemplate.value];
+	if (templates[selectedAgentTemplate.value]) {
+		form.value.content = templates[selectedAgentTemplate.value];
 	}
 };
 
+const applyRuleTemplate = () => {
+	if (!selectedRuleTemplate.value) return;
+
+	const templates = {
+		meetingMinutes: `# 議事録テンプレートルール（共通）
+
+## 対象
+- 勉強会
+- 定例
+- 意思決定会議
+
+## 入力
+- meetingType: {{meetingType}}（例: 勉強会 / 定例 / 意思決定）
+
+## 出力ルール
+1. 各セクションは情報がある場合のみ出力する（空セクションは禁止）。
+2. meetingType が「勉強会」の場合、以下を出力しない:
+   - 決定事項
+   - 次のアクション
+3. meetingType が「定例」または「意思決定会議」の場合:
+   - 決定事項と次のアクションを出力する
+   - ただし内容がない場合はセクション自体を省略する
+
+## 標準セクション例
+- 概要
+- 議論内容
+- 決定事項（勉強会では非表示）
+- 次のアクション（勉強会では非表示）
+
+## 出力フォーマット
+- 箇条書き中心で簡潔に
+- 重要度が高い項目は先に記載する
+`,
+	};
+
+	if (templates[selectedRuleTemplate.value]) {
+		form.value.content = templates[selectedRuleTemplate.value];
+	}
+};
 </script>

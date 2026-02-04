@@ -184,7 +184,9 @@
 			"agentHint": "Claude Code用のSubagentを定義します",
 			"agentTemplateHint": "Subagentテンプレートについては、Claude Code公式ドキュメントをご参照ください",
 			"agentTemplate": "テンプレート",
+			"ruleTemplate": "テンプレート",
 			"selectTemplate": "テンプレートを選択",
+			"ruleTemplateHint": "テンプレートを選択すると、ルールのサンプルが挿入されます",
 			"templateHint": "テンプレートを選択すると、サンプルコードが挿入されます",
 			"uploadMarkdown": "Markdownファイルをアップロード",
 			"writeDirectly": "直接入力する",
@@ -268,7 +270,8 @@
 			"codeReviewer": "コードレビュー",
 			"testGenerator": "テスト生成",
 			"docWriter": "ドキュメント作成",
-			"generalHelper": "汎用アシスタント"
+			"generalHelper": "汎用アシスタント",
+			"meetingMinutes": "議事録テンプレート"
 		}
 	},
 	"profile": {

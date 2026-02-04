@@ -276,7 +276,9 @@
 			"agentHint": "Define a subagent for Claude Code",
 			"agentTemplateHint": "Please refer to the Claude Code official documentation for subagent templates",
 			"agentTemplate": "Template",
+			"ruleTemplate": "Template",
 			"selectTemplate": "Select a template",
+			"ruleTemplateHint": "Selecting a template will insert sample rule content",
 			"templateHint": "Selecting a template will insert sample code",
 			"uploadMarkdown": "Upload Markdown file",
 			"writeDirectly": "Write directly",
@@ -360,7 +362,8 @@
 			"codeReviewer": "Code Reviewer",
 			"testGenerator": "Test Generator",
 			"docWriter": "Documentation Writer",
-			"generalHelper": "General Assistant"
+			"generalHelper": "General Assistant",
+			"meetingMinutes": "Meeting Minutes Rule"
 		}
 	},
 
