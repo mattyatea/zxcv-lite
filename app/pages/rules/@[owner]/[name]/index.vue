@@ -489,17 +489,17 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
-          {{ t('rules.detail.notFound') }}
+          {{ errorTitle }}
         </h2>
         <p class="text-gray-600 dark:text-gray-400 mb-8">
-          {{ t('rules.detail.notFoundDescription') }}
+          {{ errorDescription }}
         </p>
-        <NuxtLink to="/rules">
+        <NuxtLink :to="errorActionLink">
           <CommonButton variant="primary" size="lg">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
             </svg>
-            {{ t('rules.detail.backToList') }}
+            {{ errorActionLabel }}
           </CommonButton>
         </NuxtLink>
       </div>
@@ -600,6 +600,7 @@ const isStarred = ref(false);
 const starLoading = ref(false);
 const viewCount = ref(0);
 const userRuleCount = ref(0);
+const errorState = ref<"not-found" | "unauthorized" | "forbidden" | "unknown" | null>(null);
 
 // Template variables
 const templateVariables = ref<
@@ -620,6 +621,40 @@ const customParams = inject<CustomRouteParams | null>(
 const owner = computed(() => customParams?.owner || route.params.owner);
 const name = computed(() => customParams?.name || route.params.name);
 
+const errorTitle = computed(() => {
+	switch (errorState.value) {
+		case "unauthorized":
+			return t("rules.detail.loginRequiredTitle");
+		case "forbidden":
+			return t("rules.detail.accessDeniedTitle");
+		case "unknown":
+			return t("common.error");
+		default:
+			return t("rules.detail.notFound");
+	}
+});
+
+const errorDescription = computed(() => {
+	switch (errorState.value) {
+		case "unauthorized":
+			return t("rules.detail.loginRequiredDescription");
+		case "forbidden":
+			return t("rules.detail.accessDeniedDescription");
+		case "unknown":
+			return t("rules.messages.fetchError");
+		default:
+			return t("rules.detail.notFoundDescription");
+	}
+});
+
+const errorActionLabel = computed(() =>
+	errorState.value === "unauthorized" ? t("nav.login") : t("rules.detail.backToList"),
+);
+
+const errorActionLink = computed(() =>
+	errorState.value === "unauthorized" ? "/auth" : "/rules",
+);
+
 // Computed CLI command with template variables
 const cliCommand = computed(() => {
 	let command = `zxcv install @${owner.value}/${name.value}`;
@@ -639,8 +674,10 @@ const cliCommand = computed(() => {
 	return command;
 });
 
-const fetchRuleDetails = async () => {
+const fetchRuleDetails = async (options?: { allowRetry?: boolean }) => {
+	const allowRetry = options?.allowRetry ?? true;
 	loading.value = true;
+	errorState.value = null;
 	try {
 		const path = `@${owner.value}/${name.value}`;
 
@@ -730,6 +767,37 @@ const fetchRuleDetails = async () => {
 		document.title = `${rule.value.name} - ${t("app.name")}`;
 	} catch (error) {
 		console.error("Failed to fetch rule details:", error);
+		const status =
+			error && typeof error === "object" && "status" in error
+				? Number((error as { status?: number }).status)
+				: undefined;
+		const message =
+			error && typeof error === "object" && "message" in error
+				? String((error as { message?: string }).message)
+				: "";
+		const isUnauthorized = status === 401 || message.includes("UNAUTHORIZED");
+		const isForbidden = status === 403 || message.includes("FORBIDDEN");
+		const isNotFound = status === 404 || message.includes("NOT_FOUND");
+
+		if (isUnauthorized && allowRetry && authStore.refreshToken) {
+			try {
+				await authStore.refreshAccessToken();
+				await fetchRuleDetails({ allowRetry: false });
+				return;
+			} catch (refreshError) {
+				console.error("Failed to refresh access token:", refreshError);
+			}
+		}
+
+		if (isUnauthorized) {
+			errorState.value = "unauthorized";
+		} else if (isForbidden) {
+			errorState.value = "forbidden";
+		} else if (isNotFound) {
+			errorState.value = "not-found";
+		} else {
+			errorState.value = "unknown";
+		}
 		rule.value = null;
 	} finally {
 		loading.value = false;
